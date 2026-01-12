@@ -1,0 +1,173 @@
+@import "tailwindcss";
+
+/* Zero-G Theme - Reach Badminton Platform */
+@theme inline {
+  /* Colors */
+  --color-space-black: #0a0a12;
+  --color-neon-cyan: #00f2ff;
+  --color-deep-purple: #7b2cbf;
+  --color-silver: #c0c0c0;
+  --color-white: #ffffff;
+  
+  /* Gradients */
+  --color-cyan-glow: oklch(0.8 0.2 190);
+  --color-purple-glow: oklch(0.5 0.25 300);
+  
+  /* Fonts */
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+}
+
+:root {
+  --background: #0a0a12;
+  --foreground: #ffffff;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a12;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #00f2ff, #7b2cbf);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #00d4e0, #6a24a8);
+}
+
+/* Base Styles */
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+/* Glassmorphism Utilities */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-dark {
+  background: rgba(10, 10, 18, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 242, 255, 0.1);
+}
+
+/* Neon Glow Effects */
+.glow-cyan {
+  box-shadow: 0 0 20px rgba(0, 242, 255, 0.3),
+              0 0 40px rgba(0, 242, 255, 0.1);
+}
+
+.glow-purple {
+  box-shadow: 0 0 20px rgba(123, 44, 191, 0.3),
+              0 0 40px rgba(123, 44, 191, 0.1);
+}
+
+.text-glow-cyan {
+  text-shadow: 0 0 10px rgba(0, 242, 255, 0.5),
+               0 0 20px rgba(0, 242, 255, 0.3);
+}
+
+.text-glow-purple {
+  text-shadow: 0 0 10px rgba(123, 44, 191, 0.5),
+               0 0 20px rgba(123, 44, 191, 0.3);
+}
+
+/* Gradient Text */
+.gradient-text {
+  background: linear-gradient(135deg, #00f2ff 0%, #7b2cbf 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Mesh Background */
+.mesh-gradient {
+  background: 
+    radial-gradient(ellipse at 20% 20%, rgba(0, 242, 255, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(123, 44, 191, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(0, 242, 255, 0.05) 0%, transparent 80%),
+    #0a0a12;
+}
+
+/* Animated Border */
+@keyframes border-glow {
+  0%, 100% {
+    border-color: rgba(0, 242, 255, 0.5);
+  }
+  50% {
+    border-color: rgba(123, 44, 191, 0.5);
+  }
+}
+
+.animate-border-glow {
+  animation: border-glow 3s ease-in-out infinite;
+}
+
+/* Float Animation */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-20px) rotate(3deg);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float-slow {
+  0%, 100% {
+    transform: translateY(0px) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-30px) rotate(2deg);
+  }
+}
+
+.animate-float-slow {
+  animation: float-slow 8s ease-in-out infinite;
+}
+
+@keyframes float-reverse {
+  0%, 100% {
+    transform: translateY(-15px) rotate(5deg);
+  }
+  50% {
+    transform: translateY(15px) rotate(-5deg);
+  }
+}
+
+.animate-float-reverse {
+  animation: float-reverse 7s ease-in-out infinite;
+}
+
+/* Pulse Glow */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
