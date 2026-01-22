@@ -1,22 +1,21 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/ui/Navbar";
+import { LanguageProvider } from "@/context/LanguageContext";
+import { CartProvider } from "@/context/CartContext";
+import { UserProvider } from "@/context/UserContext";
+import SkipLink from "@/components/ui/SkipLink";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "REACH | Antigravity Badminton",
-  description: "Experience the future of badminton with our Zero-G technology. Premium rackets engineered for speed, precision, and power.",
-  keywords: ["badminton", "racket", "antigravity", "zero-g", "sports", "reach"],
+  title: "REACH | Pro Badminton Store",
+  description: "Professional grade badminton equipment. Rackets, shoes, and tournament bundles for champions.",
+  keywords: ["badminton", "racket", "shoes", "pro", "tournament", "reach", "store"],
 };
 
 export default function RootLayout({
@@ -25,12 +24,26 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/favicon.jpg" type="image/jpeg" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-space-black`}
+        className={`${inter.variable} antialiased bg-brand-black`}
       >
-        <Navbar />
-        {children}
+        <SkipLink />
+        <ErrorBoundary>
+          <LanguageProvider>
+            <UserProvider>
+              <CartProvider>
+                {children}
+              </CartProvider>
+            </UserProvider>
+          </LanguageProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );
