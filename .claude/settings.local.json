@@ -10,7 +10,12 @@
       "Bash(node -e:*)",
       "Bash(npx prisma migrate:*)",
       "Bash(npx prisma db pull:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: Complete Reach Platform with Frontend & Backend\n\n## Frontend Features\n- Home page with hero, featured products, tournaments\n- Product pages: Rackets, Shoes, Sportswear, Supplements, Bundles\n- Courts services with performance ratings\n- Tournament brackets and match details\n- Shopping cart with add/remove functionality\n- Checkout flow with Thai address system\n- User authentication \\(Login/Register\\)\n- Affiliate/Partner dashboard\n- Multi-language support \\(Thai/English\\)\n\n## Backend Features\n- Prisma ORM with PostgreSQL \\(Neon\\)\n- Complete database schema\n- API Routes: Auth, Products, Orders, Partner\n- JWT authentication with sessions\n\n## Technical\n- Next.js 15 with App Router\n- TailwindCSS with custom theme\n- Framer Motion animations\n- TypeScript throughout\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(npm run dev:*)",
+      "Bash(taskkill:*)",
+      "Bash(npx next dev:*)"
     ]
   }
 }
