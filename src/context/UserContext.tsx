@@ -215,13 +215,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     // Helper function to convert API user to UserProfile
     const mapApiUserToProfile = (apiUser: any): UserProfile => {
+        const createdAt = apiUser.createdAt ? new Date(apiUser.createdAt) : new Date();
+        const memberSince = Number.isNaN(createdAt.getTime())
+            ? new Date().toISOString().split("T")[0]
+            : createdAt.toISOString().split("T")[0];
+
         return {
             name: `${apiUser.firstName} ${apiUser.lastName}`.trim(),
             nickname: apiUser.nickname || undefined,
             email: apiUser.email,
             phone: apiUser.phone || "",
             avatar: apiUser.avatar || undefined,
-            memberSince: new Date(apiUser.createdAt).toISOString().split("T")[0],
+            memberSince,
             memberTier: apiUser.memberTier || "Silver",
             shippingAddress: apiUser.shippingAddress ? JSON.parse(apiUser.shippingAddress) : undefined,
             partnerInfo: apiUser.partnerInfo ? {

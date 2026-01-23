@@ -4,12 +4,6 @@ import { hashPassword, createSession } from '@/lib/auth';
 import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
-    // Debug: Check DATABASE_URL at request time
-    const dbUrl = process.env.DATABASE_URL;
-    console.log('[Register] DATABASE_URL exists:', !!dbUrl);
-    console.log('[Register] DATABASE_URL length:', dbUrl?.length);
-    console.log('[Register] DATABASE_URL starts with:', dbUrl?.substring(0, 30));
-
     try {
         const body = await request.json();
         const { email, password, firstName, lastName, phone } = body;
@@ -57,6 +51,7 @@ export async function POST(request: NextRequest) {
                 phone: true,
                 role: true,
                 rewardPoints: true,
+                createdAt: true,
             },
         });
 
@@ -79,23 +74,12 @@ export async function POST(request: NextRequest) {
         });
     } catch (error) {
         console.error('Registration error:', error);
-        
-        // Debug info
-        const dbUrl = process.env.DATABASE_URL;
-        
-        // Always return detailed error for debugging (remove in production later)
+
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        const errorName = error instanceof Error ? error.name : 'UnknownError';
-        
-        return NextResponse.json({
-            error: 'Registration failed',
-            details: errorMessage,
-            type: errorName,
-            debug: {
-                dbUrlExists: !!dbUrl,
-                dbUrlLength: dbUrl?.length,
-                dbUrlPrefix: dbUrl?.substring(0, 20),
-            }
-        }, { status: 500 });
+        const errorDetails = process.env.NODE_ENV === 'development'
+            ? { error: 'Registration failed', details: errorMessage }
+            : { error: 'Internal server error' };
+
+        return NextResponse.json(errorDetails, { status: 500 });
     }
 }
