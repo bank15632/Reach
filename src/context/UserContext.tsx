@@ -151,9 +151,13 @@ export { PARTNER_LEVELS };
 interface UserContextType {
     // Auth
     isLoggedIn: boolean;
+    isLoading: boolean;
+    authError: string | null;
     userProfile: UserProfile | null;
-    login: (email: string, password: string, name?: string, phone?: string) => boolean;
-    logout: () => void;
+    login: (email: string, password: string) => Promise<boolean>;
+    register: (data: { email: string; password: string; firstName: string; lastName: string; phone?: string }) => Promise<boolean>;
+    logout: () => Promise<void>;
+    checkAuth: () => Promise<void>;
     updateProfile: (updates: Partial<UserProfile>) => void;
     updateAvatar: (avatarUrl: string) => void;
     updateShippingAddress: (address: ShippingAddress) => void;
@@ -199,93 +203,209 @@ const USER_ORDERS_KEY = "reach-user-orders";
 export function UserProvider({ children }: { children: ReactNode }) {
     // Auth state
     const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [authError, setAuthError] = useState<string | null>(null);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-    // Total points the user has (would come from API in real app)
-    const [totalPoints, setTotalPoints] = useState(12500);
+    // Total points the user has (comes from API)
+    const [totalPoints, setTotalPoints] = useState(0);
     const [redeemedRewards, setRedeemedRewards] = useState<RewardItem[]>([]);
     const [orders, setOrders] = useState<Order[]>([]);
     const [isLoaded, setIsLoaded] = useState(false);
 
-    // Load from localStorage on mount
-    useEffect(() => {
-        if (typeof window === "undefined") return;
+    // Helper function to convert API user to UserProfile
+    const mapApiUserToProfile = (apiUser: any): UserProfile => {
+        return {
+            name: `${apiUser.firstName} ${apiUser.lastName}`.trim(),
+            nickname: apiUser.nickname || undefined,
+            email: apiUser.email,
+            phone: apiUser.phone || "",
+            avatar: apiUser.avatar || undefined,
+            memberSince: new Date(apiUser.createdAt).toISOString().split("T")[0],
+            memberTier: apiUser.memberTier || "Silver",
+            shippingAddress: apiUser.shippingAddress ? JSON.parse(apiUser.shippingAddress) : undefined,
+            partnerInfo: apiUser.partnerInfo ? {
+                isPartner: true,
+                status: apiUser.partnerInfo.status,
+                affiliateCode: apiUser.partnerInfo.affiliateCode,
+                appliedAt: apiUser.partnerInfo.createdAt,
+                approvedAt: apiUser.partnerInfo.approvedAt || undefined,
+                totalSales: apiUser.partnerInfo.totalSales,
+                totalCommission: apiUser.partnerInfo.totalCommission,
+                availableCommission: apiUser.partnerInfo.availableCommission,
+                paidCommission: apiUser.partnerInfo.paidCommission,
+                commissionRate: apiUser.partnerInfo.commissionRate,
+                partnerPoints: apiUser.partnerInfo.partnerPoints,
+                clicks: apiUser.partnerInfo.clicks,
+                conversions: apiUser.partnerInfo.conversions,
+                currentLevel: apiUser.partnerInfo.currentLevel,
+                claimedLevels: apiUser.partnerInfo.claimedLevels || [],
+                rewardClaims: (apiUser.partnerInfo.rewardClaims || []).map((claim: any) => ({
+                    id: claim.id,
+                    level: claim.level,
+                    pointsUsed: claim.pointsUsed,
+                    rewardAmount: claim.rewardAmount,
+                    claimedAt: claim.claimedAt,
+                    status: claim.status,
+                })),
+                codes: (apiUser.partnerInfo.codes || []).map((code: any) => ({
+                    id: code.id,
+                    code: code.code,
+                    discountPercent: code.discountPercent,
+                    expiryDate: code.expiryDate,
+                    maxUses: code.maxUses,
+                    usedCount: code.usedCount,
+                    applicableProducts: code.applicableProducts || "all",
+                    isActive: code.isActive,
+                    createdAt: code.createdAt,
+                })),
+                withdrawals: (apiUser.partnerInfo.withdrawals || []).map((w: any) => ({
+                    id: w.id,
+                    amount: w.amount,
+                    status: w.status,
+                    bankName: w.bankName,
+                    accountNumber: w.accountNumber,
+                    accountName: w.accountName,
+                    requestedAt: w.createdAt,
+                    processedAt: w.processedAt || undefined,
+                })),
+                bankInfo: apiUser.partnerInfo.bankName ? {
+                    bankName: apiUser.partnerInfo.bankName,
+                    accountNumber: apiUser.partnerInfo.bankAccountNumber || "",
+                    accountName: apiUser.partnerInfo.bankAccountName || "",
+                } : undefined,
+            } : undefined,
+        };
+    };
 
+    // Check authentication on mount
+    const checkAuth = async () => {
         try {
-            // Load login state
-            const savedLoggedIn = localStorage.getItem(IS_LOGGED_IN_KEY);
-            if (savedLoggedIn === "true") {
-                setIsLoggedIn(true);
-            }
+            setIsLoading(true);
+            const response = await fetch("/api/auth/me");
 
-            // Load user profile
-            const savedProfile = localStorage.getItem(USER_PROFILE_KEY);
-            if (savedProfile) {
-                setUserProfile(JSON.parse(savedProfile));
-            }
-
-            // Load saved points
-            const savedPoints = localStorage.getItem(USER_POINTS_KEY);
-            if (savedPoints) {
-                setTotalPoints(parseInt(savedPoints, 10));
-            }
-
-            // Load redeemed rewards
-            const savedRewards = localStorage.getItem(REDEEMED_REWARDS_KEY);
-            if (savedRewards) {
-                setRedeemedRewards(JSON.parse(savedRewards));
-            }
-
-            // Load orders
-            const savedOrders = localStorage.getItem(USER_ORDERS_KEY);
-            if (savedOrders) {
-                setOrders(JSON.parse(savedOrders));
+            if (response.ok) {
+                const data = await response.json();
+                if (data.user) {
+                    setUserProfile(mapApiUserToProfile(data.user));
+                    setTotalPoints(data.user.rewardPoints || 0);
+                    setIsLoggedIn(true);
+                }
+            } else {
+                setIsLoggedIn(false);
+                setUserProfile(null);
             }
         } catch (error) {
-            console.error("Failed to load user data:", error);
+            console.error("Auth check failed:", error);
+            setIsLoggedIn(false);
+            setUserProfile(null);
+        } finally {
+            setIsLoading(false);
+            setIsLoaded(true);
         }
+    };
 
-        setIsLoaded(true);
+    // Check auth on mount
+    useEffect(() => {
+        checkAuth();
     }, []);
 
-    // Save to localStorage when data changes
+    // Save non-auth data to localStorage when it changes
     useEffect(() => {
         if (!isLoaded || typeof window === "undefined") return;
 
-        localStorage.setItem(USER_POINTS_KEY, totalPoints.toString());
         localStorage.setItem(REDEEMED_REWARDS_KEY, JSON.stringify(redeemedRewards));
-        localStorage.setItem(IS_LOGGED_IN_KEY, isLoggedIn.toString());
         localStorage.setItem(USER_ORDERS_KEY, JSON.stringify(orders));
-        if (userProfile) {
-            localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(userProfile));
+    }, [redeemedRewards, isLoaded, orders]);
+
+    // Login function - calls real API
+    const login = async (email: string, password: string): Promise<boolean> => {
+        try {
+            setIsLoading(true);
+            setAuthError(null);
+
+            const response = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                setAuthError(data.error || "Login failed");
+                return false;
+            }
+
+            if (data.user) {
+                setUserProfile(mapApiUserToProfile(data.user));
+                setTotalPoints(data.user.rewardPoints || 0);
+                setIsLoggedIn(true);
+                return true;
+            }
+
+            return false;
+        } catch (error) {
+            console.error("Login error:", error);
+            setAuthError("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+            return false;
+        } finally {
+            setIsLoading(false);
         }
-    }, [totalPoints, redeemedRewards, isLoaded, isLoggedIn, userProfile, orders]);
-
-    // Login function
-    const login = (email: string, password: string, name?: string, phone?: string): boolean => {
-        // In a real app, this would validate against an API
-        // For demo purposes, we accept any login
-        if (!email || !password) return false;
-
-        const profile: UserProfile = {
-            name: name || email.split("@")[0],
-            email,
-            phone: phone || "",
-            memberSince: new Date().toISOString().split("T")[0],
-            memberTier: "Silver",
-        };
-
-        setUserProfile(profile);
-        setIsLoggedIn(true);
-        return true;
     };
 
-    // Logout function
-    const logout = () => {
-        setIsLoggedIn(false);
-        setUserProfile(null);
-        localStorage.removeItem(USER_PROFILE_KEY);
-        localStorage.setItem(IS_LOGGED_IN_KEY, "false");
+    // Register function - calls real API
+    const register = async (data: { email: string; password: string; firstName: string; lastName: string; phone?: string }): Promise<boolean> => {
+        try {
+            setIsLoading(true);
+            setAuthError(null);
+
+            const response = await fetch("/api/auth/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                setAuthError(result.error || "Registration failed");
+                return false;
+            }
+
+            if (result.user) {
+                setUserProfile(mapApiUserToProfile(result.user));
+                setTotalPoints(result.user.rewardPoints || 0);
+                setIsLoggedIn(true);
+                return true;
+            }
+
+            return false;
+        } catch (error) {
+            console.error("Registration error:", error);
+            setAuthError("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+            return false;
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Logout function - calls real API
+    const logout = async (): Promise<void> => {
+        try {
+            setIsLoading(true);
+            await fetch("/api/auth/logout", { method: "POST" });
+        } catch (error) {
+            console.error("Logout error:", error);
+        } finally {
+            setIsLoggedIn(false);
+            setUserProfile(null);
+            setTotalPoints(0);
+            setIsLoading(false);
+            // Clear local storage
+            localStorage.removeItem(USER_PROFILE_KEY);
+            localStorage.removeItem(USER_POINTS_KEY);
+        }
     };
 
     // Update profile function
@@ -370,11 +490,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
             prev.map(order =>
                 order.id === orderId
                     ? {
-                          ...order,
-                          status,
-                          trackingNumber: trackingNumber || order.trackingNumber,
-                          updatedAt: new Date().toISOString(),
-                      }
+                        ...order,
+                        status,
+                        trackingNumber: trackingNumber || order.trackingNumber,
+                        updatedAt: new Date().toISOString(),
+                    }
                     : order
             )
         );
@@ -644,9 +764,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
         <UserContext.Provider
             value={{
                 isLoggedIn,
+                isLoading,
+                authError,
                 userProfile,
                 login,
+                register,
                 logout,
+                checkAuth,
                 updateProfile,
                 updateAvatar,
                 updateShippingAddress,

@@ -75,19 +75,19 @@ export default function ProfilePage() {
 
     const districtOptions = editAddress.province
         ? getDistrictsByProvince(editAddress.province).map((d) => ({
-              value: d.nameTh,
-              label: d.name,
-              labelTh: d.nameTh,
-          }))
+            value: d.nameTh,
+            label: d.name,
+            labelTh: d.nameTh,
+        }))
         : [];
 
     const subdistrictOptions = editAddress.province && editAddress.district
         ? getSubdistrictsByDistrict(editAddress.province, editAddress.district).map((s) => ({
-              value: s.nameTh,
-              label: s.name,
-              labelTh: s.nameTh,
-              postalCode: s.postalCode,
-          }))
+            value: s.nameTh,
+            label: s.name,
+            labelTh: s.nameTh,
+            postalCode: s.postalCode,
+        }))
         : [];
 
     const countryOptions = countries.map((c) => ({
@@ -231,8 +231,8 @@ export default function ProfilePage() {
         Platinum: "แพลทินัม",
     };
 
-    const handleLogout = () => {
-        logout();
+    const handleLogout = async () => {
+        await logout();
         router.push("/");
     };
 

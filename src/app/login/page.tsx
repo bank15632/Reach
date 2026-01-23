@@ -12,16 +12,18 @@ import { Eye, EyeOff, Mail, Lock, User, Phone } from "lucide-react";
 export default function LoginPage() {
     const { language } = useLanguage();
     const router = useRouter();
-    const { isLoggedIn, login } = useUser();
+    const { isLoggedIn, isLoading, authError, login, register } = useUser();
     const [isLogin, setIsLogin] = useState(true);
     const [showPassword, setShowPassword] = useState(false);
     const [isTermsOpen, setIsTermsOpen] = useState(false);
     const [error, setError] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
         email: '',
         password: '',
         confirmPassword: '',
-        name: '',
+        firstName: '',
+        lastName: '',
         phone: ''
     });
 
@@ -123,33 +125,50 @@ export default function LoginPage() {
 
     const t = language === 'th' ? content.th : content.en;
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
+        setIsSubmitting(true);
 
-        // Validate
-        if (!formData.email || !formData.password) {
-            setError(language === "th" ? "กรุณากรอกข้อมูลให้ครบ" : "Please fill in all fields");
-            return;
-        }
+        try {
+            // Validate
+            if (!formData.email || !formData.password) {
+                setError(language === "th" ? "กรุณากรอกข้อมูลให้ครบ" : "Please fill in all fields");
+                return;
+            }
 
-        if (!isLogin && formData.password !== formData.confirmPassword) {
-            setError(language === "th" ? "รหัสผ่านไม่ตรงกัน" : "Passwords do not match");
-            return;
-        }
+            if (!isLogin && formData.password !== formData.confirmPassword) {
+                setError(language === "th" ? "รหัสผ่านไม่ตรงกัน" : "Passwords do not match");
+                return;
+            }
 
-        // Attempt login/register
-        const success = login(
-            formData.email,
-            formData.password,
-            isLogin ? undefined : formData.name,
-            isLogin ? undefined : formData.phone
-        );
+            if (!isLogin && (!formData.firstName || !formData.lastName)) {
+                setError(language === "th" ? "กรุณากรอกชื่อและนามสกุล" : "Please enter first and last name");
+                return;
+            }
 
-        if (success) {
-            router.push("/profile");
-        } else {
-            setError(language === "th" ? "เข้าสู่ระบบไม่สำเร็จ" : "Login failed");
+            let success = false;
+
+            if (isLogin) {
+                // Login
+                success = await login(formData.email, formData.password);
+            } else {
+                // Register
+                success = await register({
+                    email: formData.email,
+                    password: formData.password,
+                    firstName: formData.firstName,
+                    lastName: formData.lastName,
+                    phone: formData.phone || undefined,
+                });
+            }
+
+            if (success) {
+                router.push("/profile");
+            }
+            // Error is already set in context via authError
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -179,27 +198,44 @@ export default function LoginPage() {
 
                         {/* Form */}
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            {error && (
+                            {(error || authError) && (
                                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                                    {error}
+                                    {error || authError}
                                 </div>
                             )}
 
                             {!isLogin && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        {t.register.name}
-                                    </label>
-                                    <div className="relative">
-                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                        <input
-                                            type="text"
-                                            required
-                                            value={formData.name}
-                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-brand-yellow focus:border-transparent outline-none"
-                                            placeholder={language === 'th' ? 'กรอกชื่อ-นามสกุล' : 'Enter your full name'}
-                                        />
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            {language === 'th' ? 'ชื่อ' : 'First Name'}
+                                        </label>
+                                        <div className="relative">
+                                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                required
+                                                value={formData.firstName}
+                                                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                                                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-brand-yellow focus:border-transparent outline-none"
+                                                placeholder={language === 'th' ? 'ชื่อ' : 'First'}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            {language === 'th' ? 'นามสกุล' : 'Last Name'}
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                required
+                                                value={formData.lastName}
+                                                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-brand-yellow focus:border-transparent outline-none"
+                                                placeholder={language === 'th' ? 'นามสกุล' : 'Last'}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -311,8 +347,15 @@ export default function LoginPage() {
 
                             <button
                                 type="submit"
-                                className="w-full py-3 bg-brand-yellow text-black font-bold rounded-lg hover:bg-yellow-400 transition-colors"
+                                disabled={isSubmitting || isLoading}
+                                className="w-full py-3 bg-brand-yellow text-black font-bold rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
+                                {(isSubmitting || isLoading) && (
+                                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                )}
                                 {isLogin ? t.login.submit : t.register.submit}
                             </button>
                         </form>
