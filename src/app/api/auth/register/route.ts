@@ -71,12 +71,14 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('Registration error:', error);
         
-        // Return more detailed error in development
+        // Always return detailed error for debugging (remove in production later)
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        const errorDetails = process.env.NODE_ENV === 'development' 
-            ? { error: errorMessage, stack: error instanceof Error ? error.stack : undefined }
-            : { error: 'Internal server error' };
+        const errorName = error instanceof Error ? error.name : 'UnknownError';
         
-        return NextResponse.json(errorDetails, { status: 500 });
+        return NextResponse.json({
+            error: 'Registration failed',
+            details: errorMessage,
+            type: errorName,
+        }, { status: 500 });
     }
 }
