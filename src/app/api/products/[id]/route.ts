@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db/prisma';
+import { requireAdmin } from '@/lib/auth';
 
 type Params = Promise<{ id: string }>;
 
@@ -40,6 +41,8 @@ export async function PUT(
     { params }: { params: Params }
 ) {
     try {
+        await requireAdmin();
+
         const { id } = await params;
         const body = await request.json();
 
@@ -67,6 +70,14 @@ export async function PUT(
         return NextResponse.json({ product });
     } catch (error) {
         console.error('Update product error:', error);
+
+        if (error instanceof Error && error.message === 'Unauthorized') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        if (error instanceof Error && error.message === 'Forbidden') {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
         return NextResponse.json(
             { error: 'Internal server error' },
             { status: 500 }
@@ -80,6 +91,8 @@ export async function DELETE(
     { params }: { params: Params }
 ) {
     try {
+        await requireAdmin();
+
         const { id } = await params;
 
         await prisma.product.delete({
@@ -89,6 +102,14 @@ export async function DELETE(
         return NextResponse.json({ message: 'Product deleted successfully' });
     } catch (error) {
         console.error('Delete product error:', error);
+
+        if (error instanceof Error && error.message === 'Unauthorized') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        if (error instanceof Error && error.message === 'Forbidden') {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
         return NextResponse.json(
             { error: 'Internal server error' },
             { status: 500 }
