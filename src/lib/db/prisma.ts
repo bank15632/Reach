@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaNeon } from '@prisma/adapter-neon';
-import { Pool, neonConfig } from '@neondatabase/serverless';
+import { neonConfig } from '@neondatabase/serverless';
 
 // Singleton instance
 let prismaInstance: PrismaClient | null = null;
@@ -18,19 +18,15 @@ export function getPrisma(): PrismaClient {
     }
 
     console.log('[Prisma] Initializing...');
-    
-    // Disable WebSocket pooling - use fetch instead
+
+    // Force HTTP queries (no WebSocket) for serverless
     neonConfig.poolQueryViaFetch = true;
     neonConfig.fetchConnectionCache = true;
 
-    // Create Pool - it will use HTTP via fetch due to neonConfig above
-    const pool = new Pool({ connectionString });
-    
-    console.log('[Prisma] Created Pool');
+    // PrismaNeon expects PoolConfig (not a Pool instance)
+    const adapter = new PrismaNeon({ connectionString });
 
-    const adapter = new PrismaNeon(pool);
-
-    console.log('[Prisma] Created adapter');
+    console.log('[Prisma] Created adapter factory');
 
     prismaInstance = new PrismaClient({
         adapter,
