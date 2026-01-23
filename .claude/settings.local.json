@@ -15,7 +15,10 @@
       "Bash(git push:*)",
       "Bash(npm run dev:*)",
       "Bash(taskkill:*)",
-      "Bash(npx next dev:*)"
+      "Bash(npx next dev:*)",
+      "Bash(git commit:*)",
+      "Bash(npx prisma studio)",
+      "Bash(timeout:*)"
     ]
   }
 }
