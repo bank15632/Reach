@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
-import prisma from './db/prisma';
+import { getPrisma } from './db/prisma';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
 const TOKEN_EXPIRY = '7d';
@@ -30,6 +30,7 @@ export function verifyToken(token: string): { userId: string } | null {
 
 // Session management
 export async function createSession(userId: string): Promise<string> {
+    const prisma = getPrisma();
     const token = generateToken(userId);
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
@@ -45,12 +46,14 @@ export async function createSession(userId: string): Promise<string> {
 }
 
 export async function deleteSession(token: string): Promise<void> {
+    const prisma = getPrisma();
     await prisma.session.deleteMany({
         where: { token },
     });
 }
 
 export async function getSessionUser(token: string) {
+    const prisma = getPrisma();
     const session = await prisma.session.findUnique({
         where: { token },
         include: {

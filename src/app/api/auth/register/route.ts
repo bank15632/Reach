@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/db/prisma';
+import { getPrisma } from '@/lib/db/prisma';
 import { hashPassword, createSession } from '@/lib/auth';
 import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
+    // Debug: Check DATABASE_URL at request time
+    const dbUrl = process.env.DATABASE_URL;
+    console.log('[Register] DATABASE_URL exists:', !!dbUrl);
+    console.log('[Register] DATABASE_URL length:', dbUrl?.length);
+    console.log('[Register] DATABASE_URL starts with:', dbUrl?.substring(0, 30));
+
     try {
         const body = await request.json();
         const { email, password, firstName, lastName, phone } = body;
@@ -15,6 +21,9 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             );
         }
+
+        // Get Prisma client (lazy initialization)
+        const prisma = getPrisma();
 
         // Check if user exists
         const existingUser = await prisma.user.findUnique({
@@ -71,6 +80,9 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('Registration error:', error);
         
+        // Debug info
+        const dbUrl = process.env.DATABASE_URL;
+        
         // Always return detailed error for debugging (remove in production later)
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         const errorName = error instanceof Error ? error.name : 'UnknownError';
@@ -79,6 +91,11 @@ export async function POST(request: NextRequest) {
             error: 'Registration failed',
             details: errorMessage,
             type: errorName,
+            debug: {
+                dbUrlExists: !!dbUrl,
+                dbUrlLength: dbUrl?.length,
+                dbUrlPrefix: dbUrl?.substring(0, 20),
+            }
         }, { status: 500 });
     }
 }

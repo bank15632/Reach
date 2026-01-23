@@ -21,7 +21,8 @@ export async function GET() {
 
     // Test Prisma connection
     try {
-        const { default: prisma } = await import('@/lib/db/prisma');
+        const { getPrisma } = await import('@/lib/db/prisma');
+        const prisma = getPrisma();
         // Simple query to test connection
         await prisma.$queryRaw`SELECT 1 as test`;
         checks.prisma.configured = true;
