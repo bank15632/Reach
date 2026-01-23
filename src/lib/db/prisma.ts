@@ -1,35 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaNeon } from '@prisma/adapter-neon';
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import ws from 'ws';
-
-// Configure WebSocket for Node.js (Vercel Serverless)
-neonConfig.webSocketConstructor = ws;
+import { neon } from '@neondatabase/serverless';
 
 // Singleton instance
 let prismaInstance: PrismaClient | null = null;
-
-// Parse PostgreSQL connection string into components
-function parseConnectionString(url: string) {
-    const regex = /^postgresql:\/\/([^:]+):([^@]+)@([^\/]+)\/([^?]+)(\?.*)?$/;
-    const match = url.match(regex);
-    
-    if (!match) {
-        throw new Error('Invalid connection string format');
-    }
-
-    const [, user, password, hostWithPort, database, queryString] = match;
-    const [host, port] = hostWithPort.split(':');
-
-    return {
-        user: decodeURIComponent(user),
-        password: decodeURIComponent(password),
-        host,
-        port: port ? parseInt(port, 10) : 5432,
-        database,
-        ssl: queryString?.includes('sslmode=require') ? { rejectUnauthorized: false } : undefined,
-    };
-}
 
 // Get or create Prisma client (lazy initialization)
 export function getPrisma(): PrismaClient {
@@ -43,30 +17,25 @@ export function getPrisma(): PrismaClient {
         throw new Error('DATABASE_URL is not set');
     }
 
-    console.log('[Prisma] Initializing...');
+    console.log('[Prisma] Initializing with HTTP driver...');
     console.log('[Prisma] Connection string length:', connectionString.length);
 
-    // Parse and create Pool with explicit parameters
-    const config = parseConnectionString(connectionString);
-    console.log('[Prisma] Parsed host:', config.host);
-    console.log('[Prisma] Parsed database:', config.database);
-
-    const pool = new Pool({
-        host: config.host,
-        port: config.port,
-        user: config.user,
-        password: config.password,
-        database: config.database,
-        ssl: config.ssl,
-    });
+    // Use Neon HTTP driver (fetch-based, no WebSocket needed)
+    const sql = neon(connectionString);
     
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const adapter = new PrismaNeon(pool as any);
+    console.log('[Prisma] Created neon sql function');
+
+    // Create adapter with the HTTP sql function
+    const adapter = new PrismaNeon(sql);
+
+    console.log('[Prisma] Created PrismaNeon adapter');
 
     prismaInstance = new PrismaClient({
         adapter,
         log: ['error'],
     });
+
+    console.log('[Prisma] Created PrismaClient');
 
     return prismaInstance;
 }
