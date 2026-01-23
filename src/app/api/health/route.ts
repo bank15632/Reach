@@ -22,9 +22,12 @@ export async function GET() {
     // Test Prisma connection
     try {
         const { default: prisma } = await import('@/lib/db/prisma');
-        await prisma.$queryRaw`SELECT 1`;
+        // Simple query to test connection
+        await prisma.$queryRaw`SELECT 1 as test`;
         checks.prisma.configured = true;
+        checks.prisma.error = null;
     } catch (error) {
+        checks.prisma.configured = false;
         checks.prisma.error = error instanceof Error ? error.message : 'Unknown error';
     }
 
