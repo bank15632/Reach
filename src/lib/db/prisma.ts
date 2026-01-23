@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaNeon } from '@prisma/adapter-neon';
-import { neon } from '@neondatabase/serverless';
+import { Pool, neonConfig } from '@neondatabase/serverless';
 
 // Singleton instance
 let prismaInstance: PrismaClient | null = null;
@@ -17,18 +17,20 @@ export function getPrisma(): PrismaClient {
         throw new Error('DATABASE_URL is not set');
     }
 
-    console.log('[Prisma] Initializing with HTTP driver...');
-    console.log('[Prisma] Connection string length:', connectionString.length);
-
-    // Use Neon HTTP driver (fetch-based, no WebSocket needed)
-    const sql = neon(connectionString);
+    console.log('[Prisma] Initializing...');
     
-    console.log('[Prisma] Created neon sql function');
+    // Disable WebSocket pooling - use fetch instead
+    neonConfig.poolQueryViaFetch = true;
+    neonConfig.fetchConnectionCache = true;
 
-    // Create adapter with the HTTP sql function
-    const adapter = new PrismaNeon(sql);
+    // Create Pool - it will use HTTP via fetch due to neonConfig above
+    const pool = new Pool({ connectionString });
+    
+    console.log('[Prisma] Created Pool');
 
-    console.log('[Prisma] Created PrismaNeon adapter');
+    const adapter = new PrismaNeon(pool);
+
+    console.log('[Prisma] Created adapter');
 
     prismaInstance = new PrismaClient({
         adapter,
