@@ -7,7 +7,7 @@ import { isPayPalConfigured, createPayPalOrder } from '@/lib/payment/paypal';
 // POST /api/payments/create - Create a payment session
 export async function POST(request: NextRequest) {
     try {
-        const user = await getCurrentUser(request);
+        const user = await getCurrentUser();
         if (!user) {
             return NextResponse.json(
                 { error: 'Authentication required' },
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
                     currency,
                     orderId,
                     auctionId,
-                    description: orderId 
+                    description: orderId
                         ? `Order #${orderId}`
                         : `Auction Payment`
                 });
