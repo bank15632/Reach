@@ -10,9 +10,9 @@ export async function POST(
     try {
         const prisma = getPrisma();
         const { id: auctionId } = await params;
-        
+
         // Get current user
-        const user = await getCurrentUser(request);
+        const user = await getCurrentUser();
         if (!user) {
             return NextResponse.json(
                 { error: 'Authentication required', code: 'AUTH_REQUIRED' },
@@ -37,7 +37,7 @@ export async function POST(
             // Check if blacklist has expired
             if (!blacklist.expiresAt || blacklist.expiresAt > new Date()) {
                 return NextResponse.json(
-                    { 
+                    {
                         error: 'You are currently unable to participate in auctions due to previous unpaid bids',
                         code: 'BLACKLISTED',
                         reason: blacklist.reason
@@ -101,10 +101,10 @@ export async function POST(
 
         if (amount < minimumBid) {
             return NextResponse.json(
-                { 
+                {
                     error: `Minimum bid is ${minimumBid.toLocaleString()} THB`,
                     code: 'BID_TOO_LOW',
-                    minimumBid 
+                    minimumBid
                 },
                 { status: 400 }
             );
