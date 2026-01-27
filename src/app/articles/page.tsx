@@ -2,13 +2,44 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import Navbar from "@/components/ui/Navbar";
 import Breadcrumb from "@/components/ui/Breadcrumb";
 import { useLanguage } from "@/context/LanguageContext";
-import { articles } from "@/data/articleData";
+
+interface ArticleItem {
+    id: string;
+    title: string;
+    titleEn: string;
+    excerpt: string;
+    excerptEn: string;
+    image: string;
+    category: string;
+    categoryTh: string;
+}
 
 export default function ArticlesPage() {
     const { language } = useLanguage();
+    const [articles, setArticles] = useState<ArticleItem[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        async function fetchArticles() {
+            try {
+                const res = await fetch("/api/articles");
+                const data = await res.json();
+                if (res.ok) {
+                    setArticles(data.articles || []);
+                }
+            } catch (error) {
+                console.error("Error fetching articles:", error);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        fetchArticles();
+    }, []);
 
     return (
         <main className="bg-white min-h-screen">
@@ -30,43 +61,47 @@ export default function ArticlesPage() {
             {/* Articles Grid */}
             <section className="py-12">
                 <div className="max-w-7xl mx-auto px-6">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-                        {articles.map((article, index) => (
-                            <motion.div
-                                key={article.id}
-                                initial={{ opacity: 0, y: 30 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.5, delay: index * 0.05 }}
-                            >
-                                <Link href={`/articles/${article.id}`} className="group block">
-                                    {/* 9:16 Image */}
-                                    <div className="relative aspect-[9/16] overflow-hidden bg-gray-100">
-                                        <div
-                                            className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                                            style={{ backgroundImage: `url('${article.image}')` }}
-                                        />
-                                        {/* Gradient overlay */}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                                        {/* Category badge */}
-                                        <div className="absolute top-3 left-3">
-                                            <span className="bg-brand-yellow text-black px-2 py-1 text-xs font-bold uppercase">
-                                                {language === 'th' ? article.categoryTh : article.category}
-                                            </span>
+                    {loading ? (
+                        <div className="text-center text-gray-500">กำลังโหลด...</div>
+                    ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+                            {articles.map((article, index) => (
+                                <motion.div
+                                    key={article.id}
+                                    initial={{ opacity: 0, y: 30 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.5, delay: index * 0.05 }}
+                                >
+                                    <Link href={`/articles/${article.id}`} className="group block">
+                                        {/* 9:16 Image */}
+                                        <div className="relative aspect-[9/16] overflow-hidden bg-gray-100">
+                                            <div
+                                                className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+                                                style={{ backgroundImage: `url('${article.image}')` }}
+                                            />
+                                            {/* Gradient overlay */}
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                                            {/* Category badge */}
+                                            <div className="absolute top-3 left-3">
+                                                <span className="bg-brand-yellow text-black px-2 py-1 text-xs font-bold uppercase">
+                                                    {language === 'th' ? article.categoryTh : article.category}
+                                                </span>
+                                            </div>
+                                            {/* Content */}
+                                            <div className="absolute bottom-0 left-0 right-0 p-4">
+                                                <h3 className="text-white font-bold text-sm md:text-base leading-tight mb-2 group-hover:text-brand-yellow transition-colors">
+                                                    {language === 'th' ? article.title : article.titleEn}
+                                                </h3>
+                                                <p className="text-gray-300 text-xs line-clamp-2 hidden md:block">
+                                                    {language === 'th' ? article.excerpt : article.excerptEn}
+                                                </p>
+                                            </div>
                                         </div>
-                                        {/* Content */}
-                                        <div className="absolute bottom-0 left-0 right-0 p-4">
-                                            <h3 className="text-white font-bold text-sm md:text-base leading-tight mb-2 group-hover:text-brand-yellow transition-colors">
-                                                {language === 'th' ? article.title : article.titleEn}
-                                            </h3>
-                                            <p className="text-gray-300 text-xs line-clamp-2 hidden md:block">
-                                                {language === 'th' ? article.excerpt : article.excerptEn}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </Link>
-                            </motion.div>
-                        ))}
-                    </div>
+                                    </Link>
+                                </motion.div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </section>
         </main>

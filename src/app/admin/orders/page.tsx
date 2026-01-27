@@ -11,6 +11,8 @@ import {
     ChevronRight,
     Filter,
 } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
+import AdminGuard from '@/components/admin/AdminGuard';
 
 interface Order {
     id: string;
@@ -40,13 +42,13 @@ interface Pagination {
 }
 
 const STATUS_OPTIONS = [
-    { value: '', label: 'ทั้งหมด' },
-    { value: 'PENDING', label: 'รอดำเนินการ' },
-    { value: 'CONFIRMED', label: 'ยืนยันแล้ว' },
-    { value: 'PROCESSING', label: 'กำลังจัดเตรียม' },
-    { value: 'SHIPPED', label: 'จัดส่งแล้ว' },
-    { value: 'DELIVERED', label: 'ส่งถึงแล้ว' },
-    { value: 'CANCELLED', label: 'ยกเลิก' },
+    { value: '', labelEn: 'All', labelTh: 'ทั้งหมด' },
+    { value: 'PENDING', labelEn: 'Pending', labelTh: 'รอดำเนินการ' },
+    { value: 'CONFIRMED', labelEn: 'Confirmed', labelTh: 'ยืนยันแล้ว' },
+    { value: 'PROCESSING', labelEn: 'Processing', labelTh: 'กำลังจัดเตรียม' },
+    { value: 'SHIPPED', labelEn: 'Shipped', labelTh: 'จัดส่งแล้ว' },
+    { value: 'DELIVERED', labelEn: 'Delivered', labelTh: 'ส่งถึงแล้ว' },
+    { value: 'CANCELLED', labelEn: 'Cancelled', labelTh: 'ยกเลิก' },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -59,6 +61,8 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function OrdersPage() {
+    const { language } = useLanguage();
+    const t = (en: string, th: string) => (language === 'th' ? th : en);
     const [orders, setOrders] = useState<Order[]>([]);
     const [pagination, setPagination] = useState<Pagination>({
         page: 1,
@@ -105,11 +109,11 @@ export default function OrdersPage() {
     };
 
     const formatPrice = (price: number) => {
-        return new Intl.NumberFormat('th-TH').format(price);
+        return new Intl.NumberFormat(language === 'th' ? 'th-TH' : 'en-US').format(price);
     };
 
     const formatDate = (date: string) => {
-        return new Intl.DateTimeFormat('th-TH', {
+        return new Intl.DateTimeFormat(language === 'th' ? 'th-TH' : 'en-US', {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
@@ -119,15 +123,18 @@ export default function OrdersPage() {
     };
 
     const getStatusLabel = (s: string) => {
-        return STATUS_OPTIONS.find((opt) => opt.value === s)?.label || s;
+        const match = STATUS_OPTIONS.find((opt) => opt.value === s);
+        if (!match) return s;
+        return language === 'th' ? match.labelTh : match.labelEn;
     };
 
     return (
+        <AdminGuard permission="MANAGE_ORDERS">
         <div className="space-y-6">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold text-gray-900">คำสั่งซื้อ</h1>
-                <p className="text-gray-500">จัดการคำสั่งซื้อทั้งหมด</p>
+                <h1 className="text-2xl font-bold text-gray-900">{t('Orders', 'คำสั่งซื้อ')}</h1>
+                <p className="text-gray-500">{t('Manage all orders.', 'จัดการคำสั่งซื้อทั้งหมด')}</p>
             </div>
 
             {/* Filters */}
@@ -139,7 +146,7 @@ export default function OrdersPage() {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="ค้นหาด้วยเลขที่คำสั่งซื้อ หรือชื่อลูกค้า..."
+                                placeholder={t('Search by order number or customer name...', 'ค้นหาด้วยเลขที่คำสั่งซื้อ หรือชื่อลูกค้า...')}
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-yellow/50"
@@ -160,7 +167,7 @@ export default function OrdersPage() {
                         >
                             {STATUS_OPTIONS.map((opt) => (
                                 <option key={opt.value} value={opt.value}>
-                                    {opt.label}
+                                    {language === 'th' ? opt.labelTh : opt.labelEn}
                                 </option>
                             ))}
                         </select>
@@ -173,12 +180,12 @@ export default function OrdersPage() {
                 {loading ? (
                     <div className="p-8 text-center">
                         <div className="animate-spin w-8 h-8 border-2 border-brand-yellow border-t-transparent rounded-full mx-auto" />
-                        <p className="mt-2 text-gray-500">กำลังโหลด...</p>
+                        <p className="mt-2 text-gray-500">{t('Loading...', 'กำลังโหลด...')}</p>
                     </div>
                 ) : orders.length === 0 ? (
                     <div className="p-8 text-center">
                         <ShoppingCart className="w-12 h-12 text-gray-300 mx-auto" />
-                        <p className="mt-2 text-gray-500">ไม่พบคำสั่งซื้อ</p>
+                        <p className="mt-2 text-gray-500">{t('No orders found.', 'ไม่พบคำสั่งซื้อ')}</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
@@ -186,22 +193,22 @@ export default function OrdersPage() {
                             <thead className="bg-gray-50 border-b border-gray-200">
                                 <tr>
                                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
-                                        เลขที่
+                                        {t('Order #', 'เลขที่')}
                                     </th>
                                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
-                                        ลูกค้า
+                                        {t('Customer', 'ลูกค้า')}
                                     </th>
                                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
-                                        วันที่
+                                        {t('Date', 'วันที่')}
                                     </th>
                                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
-                                        สถานะ
+                                        {t('Status', 'สถานะ')}
                                     </th>
                                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
-                                        ยอดรวม
+                                        {t('Total', 'ยอดรวม')}
                                     </th>
                                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">
-                                        จัดการ
+                                        {t('Actions', 'จัดการ')}
                                     </th>
                                 </tr>
                             </thead>
@@ -269,9 +276,9 @@ export default function OrdersPage() {
                 {pagination.totalPages > 1 && (
                     <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
                         <p className="text-sm text-gray-500">
-                            แสดง {(pagination.page - 1) * pagination.limit + 1} -{' '}
-                            {Math.min(pagination.page * pagination.limit, pagination.total)} จาก{' '}
-                            {pagination.total} รายการ
+                            {t('Showing', 'แสดง')} {(pagination.page - 1) * pagination.limit + 1} -{' '}
+                            {Math.min(pagination.page * pagination.limit, pagination.total)} {t('of', 'จาก')}{' '}
+                            {pagination.total} {t('items', 'รายการ')}
                         </p>
                         <div className="flex items-center gap-2">
                             <button
@@ -287,7 +294,7 @@ export default function OrdersPage() {
                                 <ChevronLeft className="w-5 h-5" />
                             </button>
                             <span className="px-4 py-2 text-sm">
-                                หน้า {pagination.page} / {pagination.totalPages}
+                                {t('Page', 'หน้า')} {pagination.page} / {pagination.totalPages}
                             </span>
                             <button
                                 onClick={() =>
@@ -306,5 +313,6 @@ export default function OrdersPage() {
                 )}
             </div>
         </div>
+        </AdminGuard>
     );
 }

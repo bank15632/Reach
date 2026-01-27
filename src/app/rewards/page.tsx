@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import Navbar from "@/components/ui/Navbar";
 import Breadcrumb from "@/components/ui/Breadcrumb";
@@ -15,13 +15,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useUser } from "@/context/UserContext";
 import { useRouter } from "next/navigation";
 import { Gift } from "lucide-react";
-import {
-    products as racketProducts,
-    shoeProducts,
-    sportswearProducts,
-    bundleProducts,
-    supplementProducts
-} from "@/data/productData";
+import { ApiBundle, ApiProduct, fetchBundles, fetchProducts, getDisplayPrice } from "@/lib/apiClient";
 
 interface RewardProduct {
     id: string;
@@ -49,10 +43,39 @@ export default function RewardsPage() {
     const { language } = useLanguage();
     const { availablePoints, redeemReward } = useUser();
     const router = useRouter();
+    const [products, setProducts] = useState<ApiProduct[]>([]);
+    const [bundles, setBundles] = useState<ApiBundle[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [selectedColors, setSelectedColors] = useState<Record<string, number>>({});
     const [selectedReward, setSelectedReward] = useState<RewardProduct | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const { activeFilters, sortBy, toggleFilter, setSortBy, clearAllFilters } = useProductFilters();
+
+    useEffect(() => {
+        let isMounted = true;
+
+        async function loadRewards() {
+            try {
+                const [productData, bundleData] = await Promise.all([
+                    fetchProducts({ limit: 200 }),
+                    fetchBundles({ limit: 200 }),
+                ]);
+                if (!isMounted) return;
+                setProducts(productData);
+                setBundles(bundleData);
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false);
+                }
+            }
+        }
+
+        loadRewards();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     const pointsUnit = language === "th" ? "คะแนน" : "pts";
 
@@ -76,123 +99,75 @@ export default function RewardsPage() {
 
     const allRewards = useMemo<RewardProduct[]>(() => {
         const result: RewardProduct[] = [];
-
-        const pushProducts = <T extends RewardProduct>(items: T[]) => {
-            result.push(...items);
+        const categoryMap: Record<string, { key: RewardProduct["category"]; label: string; labelTh: string; hrefPrefix: string }> = {
+            RACKETS: { key: "rackets", label: "Badminton Racket", labelTh: "ไม้แบดมินตัน", hrefPrefix: "/rackets" },
+            SHOES: { key: "shoes", label: "Shoes", labelTh: "รองเท้า", hrefPrefix: "/shoes" },
+            SPORTSWEAR: { key: "apparel", label: "Sportswear", labelTh: "ชุดกีฬา", hrefPrefix: "/sportswear" },
+            SUPPLEMENTS: { key: "supplements", label: "Supplements", labelTh: "อาหารเสริม", hrefPrefix: "/supplements" },
         };
 
-        pushProducts(racketProducts.map(product => ({
-            id: product.id,
-            name: product.name,
-            nameTh: product.nameTh,
-            category: "rackets",
-            categoryLabel: "Badminton Racket",
-            categoryLabelTh: "ไม้แบดมินตัน",
-            price: product.price,
-            originalPrice: product.originalPrice,
-            href: `/rackets/${product.id}`,
-            badge: product.badge,
-            isNew: product.badge === "NEW",
-            isBestseller: product.badge?.includes("BEST") ?? false,
-            colors: product.colors.map(c => ({
-                name: c.name,
-                nameTh: c.nameTh,
-                hex: c.hex,
-                image: c.image
-            })),
-            images: product.images,
-        })));
+        products.forEach((product) => {
+            const mapped = categoryMap[product.category];
+            if (!mapped) {
+                return;
+            }
+            const price = getDisplayPrice(product);
+            const image = product.images?.[0] ?? "/placeholder.png";
 
-        pushProducts(shoeProducts.map(product => ({
-            id: product.id,
-            name: product.name,
-            nameTh: product.nameTh,
-            category: "shoes",
-            categoryLabel: "Shoes",
-            categoryLabelTh: "รองเท้า",
-            price: product.price,
-            originalPrice: product.originalPrice,
-            href: `/shoes/${product.id}`,
-            badge: product.badge,
-            isNew: product.badge === "NEW",
-            isBestseller: product.badge?.includes("BEST") ?? false,
-            colors: product.colors.map(c => ({
-                name: c.name,
-                nameTh: c.nameTh,
-                hex: c.hex,
-                image: c.image
-            })),
-            images: product.images,
-        })));
+            result.push({
+                id: product.id,
+                name: product.name,
+                nameTh: product.nameTh,
+                category: mapped.key,
+                categoryLabel: mapped.label,
+                categoryLabelTh: mapped.labelTh,
+                price: price.current,
+                originalPrice: price.original,
+                href: `${mapped.hrefPrefix}/${product.id}`,
+                badge: undefined,
+                isNew: false,
+                isBestseller: false,
+                colors: [
+                    {
+                        name: "Default",
+                        nameTh: "มาตรฐาน",
+                        hex: "#111827",
+                        image,
+                    },
+                ],
+                images: product.images ?? [],
+            });
+        });
 
-        pushProducts(sportswearProducts.map(product => ({
-            id: product.id,
-            name: product.name,
-            nameTh: product.nameTh,
-            category: "apparel",
-            categoryLabel: "Sportswear",
-            categoryLabelTh: "ชุดกีฬา",
-            price: product.price,
-            originalPrice: product.originalPrice,
-            href: `/sportswear/${product.id}`,
-            badge: product.badge,
-            isNew: product.badge === "NEW",
-            isBestseller: product.badge?.includes("BEST") ?? false,
-            colors: product.colors.map(c => ({
-                name: c.name,
-                nameTh: c.nameTh,
-                hex: c.hex,
-                image: c.image
-            })),
-            images: product.images,
-        })));
-
-        pushProducts(bundleProducts.map(product => ({
-            id: product.id,
-            name: product.name,
-            nameTh: product.nameTh,
-            category: "bundles",
-            categoryLabel: "Bundle",
-            categoryLabelTh: "เซ็ตสุดคุ้ม",
-            price: product.price,
-            originalPrice: product.originalPrice,
-            href: `/bundles/${product.id}`,
-            badge: product.badge,
-            isNew: false,
-            isBestseller: product.badge?.includes("BEST") ?? false,
-            colors: [{
-                name: "Default",
-                nameTh: "มาตรฐาน",
-                hex: "#1a1a1a",
-                image: product.images[0]
-            }],
-            images: product.images,
-        })));
-
-        pushProducts(supplementProducts.map(product => ({
-            id: product.id,
-            name: product.name,
-            nameTh: product.nameTh,
-            category: "supplements",
-            categoryLabel: "Supplements",
-            categoryLabelTh: "อาหารเสริม",
-            price: product.price,
-            originalPrice: product.originalPrice,
-            href: `/supplements/${product.id}`,
-            badge: product.badge,
-            isNew: product.badge === "NEW",
-            isBestseller: product.badge?.includes("BEST") ?? false,
-            colors: product.colors.map(c => ({
-                name: c.name,
-                nameTh: c.nameTh,
-                hex: c.hex,
-                image: c.image
-            })),
-            images: product.images,
-        })));
+        bundles.forEach((bundle) => {
+            const image = bundle.images?.[0] ?? "/placeholder.png";
+            result.push({
+                id: bundle.id,
+                name: bundle.name,
+                nameTh: bundle.nameTh,
+                category: "bundles",
+                categoryLabel: "Bundle",
+                categoryLabelTh: "เซ็ตสุดคุ้ม",
+                price: bundle.price,
+                originalPrice: bundle.originalPrice,
+                href: `/bundles/${bundle.id}`,
+                badge: undefined,
+                isNew: false,
+                isBestseller: false,
+                colors: [
+                    {
+                        name: "Default",
+                        nameTh: "มาตรฐาน",
+                        hex: "#111827",
+                        image,
+                    },
+                ],
+                images: bundle.images ?? [],
+            });
+        });
 
         return result;
-    }, []);
+    }, [bundles, products]);
 
     const categoryOptions = [
         { value: "rackets", label: "Rackets", labelTh: "ไม้แบด" },
@@ -378,6 +353,11 @@ export default function RewardsPage() {
 
             <section className="py-8">
                 <div className="max-w-7xl mx-auto px-6">
+                    {isLoading && (
+                        <div className="text-center py-12 text-gray-500">
+                            {language === "th" ? "กำลังโหลดของรางวัล..." : "Loading rewards..."}
+                        </div>
+                    )}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -467,7 +447,7 @@ export default function RewardsPage() {
                         })}
                     </motion.div>
 
-                    {filteredRewards.length === 0 && (
+                    {!isLoading && filteredRewards.length === 0 && (
                         <div className="text-center py-12">
                             <p className="text-gray-500">
                                 {language === "th" ? "ไม่พบของรางวัลที่ตรงกับตัวกรอง" : "No rewards found matching your filters"}

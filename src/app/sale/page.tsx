@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import Navbar from "@/components/ui/Navbar";
@@ -9,16 +9,9 @@ import ProductFilterBar, {
     FilterConfig,
     defaultSortOptions,
     useProductFilters,
-    colorFilterOptions
 } from "@/components/ui/ProductFilterBar";
 import { useLanguage } from "@/context/LanguageContext";
-import {
-    products as racketProducts,
-    shoeProducts,
-    sportswearProducts,
-    bundleProducts,
-    supplementProducts,
-} from "@/data/productData";
+import { ApiBundle, ApiProduct, fetchBundles, fetchProducts, getDisplayPrice } from "@/lib/apiClient";
 
 // Unified sale product interface
 interface SaleProduct {
@@ -31,105 +24,90 @@ interface SaleProduct {
     originalPrice: number;
     discount: number;
     href: string;
-    colors: {
-        name: string;
-        nameTh: string;
-        hex: string;
-        image: string;
-    }[];
+    image: string;
 }
 
 export default function SalePage() {
     const { language } = useLanguage();
-    const [selectedColors, setSelectedColors] = useState<{ [key: string]: number }>({});
+    const [products, setProducts] = useState<ApiProduct[]>([]);
+    const [bundles, setBundles] = useState<ApiBundle[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const { activeFilters, sortBy, toggleFilter, setSortBy, clearAllFilters, setFilterValue } = useProductFilters();
+
+    useEffect(() => {
+        let isMounted = true;
+
+        async function loadData() {
+            try {
+                const [productData, bundleData] = await Promise.all([
+                    fetchProducts({ limit: 200 }),
+                    fetchBundles({ limit: 200 }),
+                ]);
+                if (!isMounted) return;
+                setProducts(productData);
+                setBundles(bundleData);
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false);
+                }
+            }
+        }
+
+        loadData();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     // Collect all products with originalPrice (on sale) from all categories
     const allSaleProducts: SaleProduct[] = useMemo(() => {
         const saleItems: SaleProduct[] = [];
+        const categoryMap: Record<string, { key: string; label: string; labelTh: string; hrefPrefix: string }> = {
+            RACKETS: { key: "rackets", label: "Rackets", labelTh: "ไม้แบด", hrefPrefix: "/rackets" },
+            SHOES: { key: "shoes", label: "Shoes", labelTh: "รองเท้า", hrefPrefix: "/shoes" },
+            SPORTSWEAR: { key: "sportswear", label: "Sportswear", labelTh: "ชุดกีฬา", hrefPrefix: "/sportswear" },
+            SUPPLEMENTS: { key: "supplements", label: "Supplements", labelTh: "อาหารเสริม", hrefPrefix: "/supplements" },
+            ACCESSORIES: { key: "accessories", label: "Accessories", labelTh: "อุปกรณ์เสริม", hrefPrefix: "/shop" },
+        };
 
-        // Rackets with sale
-        racketProducts.filter(p => p.originalPrice).forEach(p => {
+        products.forEach((product) => {
+            const price = getDisplayPrice(product);
+            if (!price.original) return;
+            const mapped = categoryMap[product.category] ?? categoryMap.ACCESSORIES;
+
             saleItems.push({
-                id: p.id,
-                name: language === 'th' ? p.nameTh : p.name,
-                category: 'rackets',
-                categoryLabel: 'Rackets',
-                categoryLabelTh: 'ไม้แบด',
-                price: p.price,
-                originalPrice: p.originalPrice!,
-                discount: Math.round(((p.originalPrice! - p.price) / p.originalPrice!) * 100),
-                href: `/rackets/${p.id}`,
-                colors: p.colors.map(c => ({ name: c.name, nameTh: c.nameTh, hex: c.hex, image: c.image })),
+                id: product.id,
+                name: language === 'th' ? product.nameTh : product.name,
+                category: mapped.key,
+                categoryLabel: mapped.label,
+                categoryLabelTh: mapped.labelTh,
+                price: price.current,
+                originalPrice: price.original,
+                discount: Math.round(((price.original - price.current) / price.original) * 100),
+                href: `${mapped.hrefPrefix}/${product.id}`,
+                image: product.images?.[0] ?? "/placeholder.png",
             });
         });
 
-        // Shoes with sale
-        shoeProducts.filter(p => p.originalPrice).forEach(p => {
+        bundles.forEach((bundle) => {
+            if (bundle.originalPrice <= bundle.price) return;
             saleItems.push({
-                id: p.id,
-                name: language === 'th' ? p.nameTh : p.name,
-                category: 'shoes',
-                categoryLabel: 'Shoes',
-                categoryLabelTh: 'รองเท้า',
-                price: p.price,
-                originalPrice: p.originalPrice!,
-                discount: Math.round(((p.originalPrice! - p.price) / p.originalPrice!) * 100),
-                href: `/shoes/${p.id}`,
-                colors: p.colors.map(c => ({ name: c.name, nameTh: c.nameTh, hex: c.hex, image: c.image })),
-            });
-        });
-
-        // Sportswear with sale
-        sportswearProducts.filter(p => p.originalPrice).forEach(p => {
-            saleItems.push({
-                id: p.id,
-                name: language === 'th' ? p.nameTh : p.name,
-                category: 'sportswear',
-                categoryLabel: 'Sportswear',
-                categoryLabelTh: 'ชุดกีฬา',
-                price: p.price,
-                originalPrice: p.originalPrice!,
-                discount: Math.round(((p.originalPrice! - p.price) / p.originalPrice!) * 100),
-                href: `/sportswear/${p.id}`,
-                colors: p.colors.map(c => ({ name: c.name, nameTh: c.nameTh, hex: c.hex, image: c.image })),
-            });
-        });
-
-        // Bundles (all have originalPrice by design)
-        bundleProducts.forEach(p => {
-            saleItems.push({
-                id: p.id,
-                name: language === 'th' ? p.nameTh : p.name,
+                id: bundle.id,
+                name: language === 'th' ? bundle.nameTh : bundle.name,
                 category: 'bundles',
                 categoryLabel: 'Bundles',
                 categoryLabelTh: 'เซ็ตสุดคุ้ม',
-                price: p.price,
-                originalPrice: p.originalPrice,
-                discount: p.savingsPercent,
-                href: `/bundles/${p.id}`,
-                colors: [{ name: 'Default', nameTh: 'ค่าเริ่มต้น', hex: '#1a1a1a', image: p.images[0] }],
-            });
-        });
-
-        // Supplements with sale
-        supplementProducts.filter(p => p.originalPrice).forEach(p => {
-            saleItems.push({
-                id: p.id,
-                name: language === 'th' ? p.nameTh : p.name,
-                category: 'supplements',
-                categoryLabel: 'Supplements',
-                categoryLabelTh: 'อาหารเสริม',
-                price: p.price,
-                originalPrice: p.originalPrice!,
-                discount: Math.round(((p.originalPrice! - p.price) / p.originalPrice!) * 100),
-                href: `/supplements/${p.id}`,
-                colors: p.colors.map(c => ({ name: c.name, nameTh: c.nameTh, hex: c.hex, image: c.image })),
+                price: bundle.price,
+                originalPrice: bundle.originalPrice,
+                discount: Math.round(((bundle.originalPrice - bundle.price) / bundle.originalPrice) * 100),
+                href: `/bundles/${bundle.id}`,
+                image: bundle.images?.[0] ?? "/placeholder.png",
             });
         });
 
         return saleItems;
-    }, [language]);
+    }, [bundles, language, products]);
 
     // Category options
     const categoryOptions = [
@@ -155,13 +133,6 @@ export default function SalePage() {
             label: 'Category',
             labelTh: 'หมวดหมู่',
             options: categoryOptions
-        },
-        {
-            key: 'color',
-            label: 'Color',
-            labelTh: 'สี',
-            options: colorFilterOptions,
-            type: 'color'
         },
         {
             key: 'discount',
@@ -190,13 +161,6 @@ export default function SalePage() {
         // Apply category filter
         if (activeFilters.category?.length > 0) {
             result = result.filter(p => activeFilters.category.includes(p.category));
-        }
-
-        // Apply color filter
-        if (activeFilters.color?.length > 0) {
-            result = result.filter(p =>
-                p.colors.some(c => activeFilters.color.includes(c.hex))
-            );
         }
 
         // Apply discount filter
@@ -235,8 +199,6 @@ export default function SalePage() {
         return result;
     }, [activeFilters, sortBy, allSaleProducts]);
 
-    const getSelectedColorIndex = (productId: string) => selectedColors[productId] || 0;
-
     return (
         <main className="bg-white min-h-screen">
             <Navbar />
@@ -268,7 +230,11 @@ export default function SalePage() {
 
             <section className="py-8">
                 <div className="max-w-7xl mx-auto px-6">
-                    {filteredProducts.length === 0 ? (
+                    {isLoading ? (
+                        <div className="text-center py-16 text-gray-500">
+                            {language === 'th' ? 'กำลังโหลดสินค้า...' : 'Loading sale items...'}
+                        </div>
+                    ) : filteredProducts.length === 0 ? (
                         <div className="text-center py-16">
                             <p className="text-gray-500 text-lg">
                                 {language === 'th' ? 'ไม่พบสินค้าที่ตรงกับตัวกรอง' : 'No products match your filters'}
@@ -283,9 +249,6 @@ export default function SalePage() {
                     ) : (
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
                             {filteredProducts.map((product, index) => {
-                                const selectedIndex = getSelectedColorIndex(product.id);
-                                const selectedColor = product.colors[selectedIndex];
-
                                 return (
                                     <motion.div
                                         key={product.id}
@@ -301,30 +264,16 @@ export default function SalePage() {
                                             <div className="relative aspect-square overflow-hidden bg-gray-100">
                                                 <div
                                                     className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
-                                                    style={{ backgroundImage: `url('${selectedColor.image}')` }}
+                                                    style={{ backgroundImage: `url('${product.image || "/placeholder.png"}')` }}
                                                 />
                                             </div>
                                         </Link>
-
-                                        <div className="flex gap-1.5 mt-3 mb-3">
-                                            {product.colors.map((color: SaleProduct['colors'][0], colorIndex: number) => (
-                                                <button
-                                                    key={colorIndex}
-                                                    onClick={() => setSelectedColors(prev => ({ ...prev, [product.id]: colorIndex }))}
-                                                    className={`w-7 h-7 rounded-full border-2 transition-all ${colorIndex === selectedIndex ? 'border-black ring-1 ring-black/30' : 'border-gray-200 hover:border-gray-400'
-                                                        }`}
-                                                    style={{ backgroundColor: color.hex }}
-                                                    title={language === 'th' ? color.nameTh : color.name}
-                                                />
-                                            ))}
-                                        </div>
 
                                         <h3 className="text-sm font-semibold text-black mb-0.5 group-hover:underline">
                                             {product.name}
                                         </h3>
                                         <p className="text-xs text-gray-500 mb-2">{language === 'th' ? product.categoryLabelTh : product.categoryLabel}</p>
                                         <div className="border-t border-gray-200 pt-2 flex items-center justify-between">
-                                            <span className="text-xs text-gray-600">{language === 'th' ? selectedColor.nameTh : selectedColor.name}</span>
                                             <div className="flex items-center gap-2">
                                                 <span className="text-sm font-bold text-red-600">฿{product.price.toLocaleString()}</span>
                                                 <span className="text-xs text-gray-400 line-through">฿{product.originalPrice.toLocaleString()}</span>

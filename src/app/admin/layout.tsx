@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
+import { isAdminRole } from '@/lib/adminAccess';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 
 export const metadata = {
@@ -16,15 +17,15 @@ export default async function AdminLayout({
 
     // Check if user is logged in and is admin
     if (!user) {
-        redirect('/login?redirect=/admin');
+        redirect('/login');
     }
 
-    if (user.role !== 'ADMIN') {
-        redirect('/?error=unauthorized');
+    if (!isAdminRole(user.role)) {
+        redirect('/profile?error=unauthorized');
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 text-gray-900 admin-theme">
             <AdminSidebar />
 
             {/* Main Content */}

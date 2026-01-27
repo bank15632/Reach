@@ -1,184 +1,118 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import Navbar from "@/components/ui/Navbar";
 import Breadcrumb from "@/components/ui/Breadcrumb";
 import ProductFilterBar, {
     FilterConfig,
     defaultSortOptions,
-    useProductFilters,
-    colorFilterOptions
+    useProductFilters
 } from "@/components/ui/ProductFilterBar";
 import { useLanguage } from "@/context/LanguageContext";
 import Link from "next/link";
-import {
-    products as racketProducts,
-    shoeProducts,
-    sportswearProducts,
-    bundleProducts,
-    supplementProducts
-} from "@/data/productData";
+import { ApiBundle, ApiProduct, fetchBundles, fetchProducts, getDisplayPrice } from "@/lib/apiClient";
 
 // Unified product type for shop page
 interface ShopProduct {
     id: string;
     name: string;
     nameTh: string;
-    category: 'rackets' | 'shoes' | 'apparel' | 'bundles' | 'supplements';
+    category: 'rackets' | 'shoes' | 'apparel' | 'bundles' | 'supplements' | 'accessories';
     categoryLabel: string;
     categoryLabelTh: string;
     price: number;
     originalPrice?: number;
     href: string;
-    badge?: string;
-    isNew: boolean;
-    isBestseller: boolean;
-    colors: Array<{
-        name: string;
-        nameTh: string;
-        hex: string;
-        image: string;
-    }>;
     images: string[];
 }
 
 export default function ShopPage() {
     const { language } = useLanguage();
-    const [selectedColors, setSelectedColors] = useState<{ [key: string]: number }>({});
+    const [products, setProducts] = useState<ApiProduct[]>([]);
+    const [bundles, setBundles] = useState<ApiBundle[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const { activeFilters, sortBy, toggleFilter, setSortBy, clearAllFilters } = useProductFilters();
+
+    useEffect(() => {
+        let isMounted = true;
+
+        async function loadData() {
+            try {
+                const [productData, bundleData] = await Promise.all([
+                    fetchProducts({ limit: 200 }),
+                    fetchBundles({ limit: 200 }),
+                ]);
+
+                if (!isMounted) return;
+
+                setProducts(productData);
+                setBundles(bundleData);
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false);
+                }
+            }
+        }
+
+        loadData();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     // Transform all product types to unified ShopProduct format
     const allProducts = useMemo<ShopProduct[]>(() => {
         const result: ShopProduct[] = [];
+        const categoryMap: Record<string, { key: ShopProduct["category"]; label: string; labelTh: string; hrefPrefix: string }> = {
+            RACKETS: { key: "rackets", label: "Badminton Racket", labelTh: "ไม้แบดมินตัน", hrefPrefix: "/rackets" },
+            SHOES: { key: "shoes", label: "Shoes", labelTh: "รองเท้า", hrefPrefix: "/shoes" },
+            SPORTSWEAR: { key: "apparel", label: "Sportswear", labelTh: "ชุดกีฬา", hrefPrefix: "/sportswear" },
+            SUPPLEMENTS: { key: "supplements", label: "Supplements", labelTh: "อาหารเสริม", hrefPrefix: "/supplements" },
+            ACCESSORIES: { key: "accessories", label: "Accessories", labelTh: "อุปกรณ์เสริม", hrefPrefix: "/shop" },
+        };
 
-        // Add rackets
-        racketProducts.forEach(product => {
+        products.forEach((product) => {
+            const mapped = categoryMap[product.category] ?? {
+                key: "accessories",
+                label: "Accessories",
+                labelTh: "อุปกรณ์เสริม",
+                hrefPrefix: "/shop",
+            };
+            const price = getDisplayPrice(product);
+
             result.push({
                 id: product.id,
                 name: product.name,
                 nameTh: product.nameTh,
-                category: 'rackets',
-                categoryLabel: 'Badminton Racket',
-                categoryLabelTh: 'ไม้แบดมินตัน',
-                price: product.price,
-                originalPrice: product.originalPrice,
-                href: `/rackets/${product.id}`,
-                badge: product.badge,
-                isNew: product.badge === 'NEW',
-                isBestseller: product.badge === 'BEST SELLER',
-                colors: product.colors.map(c => ({
-                    name: c.name,
-                    nameTh: c.nameTh,
-                    hex: c.hex,
-                    image: c.image
-                })),
-                images: product.images,
+                category: mapped.key,
+                categoryLabel: mapped.label,
+                categoryLabelTh: mapped.labelTh,
+                price: price.current,
+                originalPrice: price.original,
+                href: `${mapped.hrefPrefix}/${product.id}`,
+                images: product.images ?? [],
             });
         });
 
-        // Add shoes
-        shoeProducts.forEach(product => {
+        bundles.forEach((bundle) => {
             result.push({
-                id: product.id,
-                name: product.name,
-                nameTh: product.nameTh,
-                category: 'shoes',
-                categoryLabel: 'Shoes',
-                categoryLabelTh: 'รองเท้า',
-                price: product.price,
-                originalPrice: product.originalPrice,
-                href: `/shoes/${product.id}`,
-                badge: product.badge,
-                isNew: product.badge === 'NEW',
-                isBestseller: product.badge === 'BEST SELLER',
-                colors: product.colors.map(c => ({
-                    name: c.name,
-                    nameTh: c.nameTh,
-                    hex: c.hex,
-                    image: c.image
-                })),
-                images: product.images,
-            });
-        });
-
-        // Add sportswear
-        sportswearProducts.forEach(product => {
-            result.push({
-                id: product.id,
-                name: product.name,
-                nameTh: product.nameTh,
-                category: 'apparel',
-                categoryLabel: 'Sportswear',
-                categoryLabelTh: 'ชุดกีฬา',
-                price: product.price,
-                originalPrice: product.originalPrice,
-                href: `/sportswear/${product.id}`,
-                badge: product.badge,
-                isNew: product.badge === 'NEW',
-                isBestseller: product.badge === 'BEST SELLER',
-                colors: product.colors.map(c => ({
-                    name: c.name,
-                    nameTh: c.nameTh,
-                    hex: c.hex,
-                    image: c.image
-                })),
-                images: product.images,
-            });
-        });
-
-        // Add bundles (bundles don't have colors, use first image as default)
-        bundleProducts.forEach(product => {
-            result.push({
-                id: product.id,
-                name: product.name,
-                nameTh: product.nameTh,
-                category: 'bundles',
-                categoryLabel: 'Bundle',
-                categoryLabelTh: 'เซ็ตสุดคุ้ม',
-                price: product.price,
-                originalPrice: product.originalPrice,
-                href: `/bundles/${product.id}`,
-                badge: product.badge,
-                isNew: false,
-                isBestseller: product.badge === 'BEST SELLER' || product.badge === 'BEST VALUE',
-                colors: [{
-                    name: 'Default',
-                    nameTh: 'มาตรฐาน',
-                    hex: '#1a1a1a',
-                    image: product.images[0]
-                }],
-                images: product.images,
-            });
-        });
-
-        // Add supplements
-        supplementProducts.forEach(product => {
-            result.push({
-                id: product.id,
-                name: product.name,
-                nameTh: product.nameTh,
-                category: 'supplements',
-                categoryLabel: 'Supplements',
-                categoryLabelTh: 'อาหารเสริม',
-                price: product.price,
-                originalPrice: product.originalPrice,
-                href: `/supplements/${product.id}`,
-                badge: product.badge,
-                isNew: product.badge === 'NEW',
-                isBestseller: product.badge === 'BEST SELLER',
-                colors: product.colors.map(c => ({
-                    name: c.name,
-                    nameTh: c.nameTh,
-                    hex: c.hex,
-                    image: c.image
-                })),
-                images: product.images,
+                id: bundle.id,
+                name: bundle.name,
+                nameTh: bundle.nameTh,
+                category: "bundles",
+                categoryLabel: "Bundle",
+                categoryLabelTh: "เซ็ตสุดคุ้ม",
+                price: bundle.price,
+                originalPrice: bundle.originalPrice,
+                href: `/bundles/${bundle.id}`,
+                images: bundle.images ?? [],
             });
         });
 
         return result;
-    }, []);
+    }, [products, bundles]);
 
     // Category options
     const categoryOptions = [
@@ -187,6 +121,7 @@ export default function ShopPage() {
         { value: 'apparel', label: 'Apparel', labelTh: 'ชุดกีฬา' },
         { value: 'bundles', label: 'Bundles', labelTh: 'เซ็ตสุดคุ้ม' },
         { value: 'supplements', label: 'Supplements', labelTh: 'อาหารเสริม' },
+        { value: 'accessories', label: 'Accessories', labelTh: 'อุปกรณ์เสริม' },
     ];
 
     // Price range options
@@ -195,29 +130,6 @@ export default function ShopPage() {
         { value: '3000-5000', label: '฿3,000 - ฿5,000', labelTh: '฿3,000 - ฿5,000' },
         { value: '5000-10000', label: '฿5,000 - ฿10,000', labelTh: '฿5,000 - ฿10,000' },
         { value: 'over-10000', label: 'Over ฿10,000', labelTh: 'มากกว่า ฿10,000' },
-    ];
-
-    // Size options (combined for shoes and apparel)
-    const sizeOptions = [
-        { value: 'XS', label: 'XS', labelTh: 'XS' },
-        { value: 'S', label: 'S', labelTh: 'S' },
-        { value: 'M', label: 'M', labelTh: 'M' },
-        { value: 'L', label: 'L', labelTh: 'L' },
-        { value: 'XL', label: 'XL', labelTh: 'XL' },
-        { value: '2XL', label: '2XL', labelTh: '2XL' },
-        { value: '7', label: 'US 7', labelTh: 'US 7' },
-        { value: '8', label: 'US 8', labelTh: 'US 8' },
-        { value: '9', label: 'US 9', labelTh: 'US 9' },
-        { value: '10', label: 'US 10', labelTh: 'US 10' },
-        { value: '11', label: 'US 11', labelTh: 'US 11' },
-        { value: '12', label: 'US 12', labelTh: 'US 12' },
-    ];
-
-    // Gender options
-    const genderOptions = [
-        { value: 'unisex', label: 'Unisex', labelTh: 'ยูนิเซ็กส์' },
-        { value: 'men', label: 'Men', labelTh: 'ผู้ชาย' },
-        { value: 'women', label: 'Women', labelTh: 'ผู้หญิง' },
     ];
 
     // Filter configurations
@@ -229,29 +141,10 @@ export default function ShopPage() {
             options: categoryOptions
         },
         {
-            key: 'size',
-            label: 'Size',
-            labelTh: 'ไซส์',
-            options: sizeOptions
-        },
-        {
-            key: 'color',
-            label: 'Color',
-            labelTh: 'สี',
-            options: colorFilterOptions,
-            type: 'color'
-        },
-        {
             key: 'price',
             label: 'Price',
             labelTh: 'ราคา',
             options: priceOptions
-        },
-        {
-            key: 'gender',
-            label: 'Gender',
-            labelTh: 'เพศ',
-            options: genderOptions
         },
     ];
 
@@ -262,13 +155,6 @@ export default function ShopPage() {
         // Apply category filter
         if (activeFilters.category?.length > 0) {
             result = result.filter(p => activeFilters.category.includes(p.category));
-        }
-
-        // Apply color filter
-        if (activeFilters.color?.length > 0) {
-            result = result.filter(p =>
-                p.colors.some(c => activeFilters.color.includes(c.hex))
-            );
         }
 
         // Apply price filter
@@ -289,7 +175,7 @@ export default function ShopPage() {
         // Apply sorting
         switch (sortBy) {
             case 'newest':
-                result = result.filter(p => p.isNew).concat(result.filter(p => !p.isNew));
+                result = result.slice().reverse();
                 break;
             case 'price-low':
                 result.sort((a, b) => a.price - b.price);
@@ -298,15 +184,11 @@ export default function ShopPage() {
                 result.sort((a, b) => b.price - a.price);
                 break;
             case 'bestseller':
-                result = result.filter(p => p.isBestseller).concat(result.filter(p => !p.isBestseller));
                 break;
         }
 
         return result;
     }, [allProducts, activeFilters, sortBy]);
-
-    // Helper to get selected color for a product
-    const getSelectedColorIndex = (productId: string) => selectedColors[productId] || 0;
 
     return (
         <main className="bg-white min-h-screen">
@@ -353,6 +235,11 @@ export default function ShopPage() {
             {/* Products Grid */}
             <section className="py-8">
                 <div className="max-w-7xl mx-auto px-6">
+                    {isLoading && (
+                        <div className="text-center py-12 text-gray-500">
+                            {language === 'th' ? 'กำลังโหลดสินค้า...' : 'Loading products...'}
+                        </div>
+                    )}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -360,9 +247,7 @@ export default function ShopPage() {
                         className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6"
                     >
                         {filteredProducts.map((product, index) => {
-                            const selectedIndex = getSelectedColorIndex(product.id);
-                            const selectedColor = product.colors[selectedIndex];
-                            const displayImage = selectedColor?.image || product.images[0];
+                            const displayImage = product.images[0] ?? "/placeholder.png";
 
                             return (
                                 <motion.div
@@ -379,31 +264,8 @@ export default function ShopPage() {
                                                 className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
                                                 style={{ backgroundImage: `url('${displayImage}')` }}
                                             />
-
-                                            {/* Badge */}
-                                            {product.badge && (
-                                                <div className="absolute top-2 left-2 bg-brand-yellow text-black text-xs font-bold px-2 py-1">
-                                                    {product.badge}
-                                                </div>
-                                            )}
                                         </div>
                                     </Link>
-
-                                    {/* Color Swatches */}
-                                    <div className="flex gap-2 mt-3 mb-3">
-                                        {product.colors.map((color, colorIndex) => (
-                                            <button
-                                                key={colorIndex}
-                                                onClick={() => setSelectedColors(prev => ({ ...prev, [product.id]: colorIndex }))}
-                                                className={`w-7 h-7 rounded-full border-2 transition-all ${colorIndex === selectedIndex
-                                                    ? 'border-black ring-2 ring-offset-1 ring-black'
-                                                    : 'border-gray-300 hover:border-gray-500'
-                                                    }`}
-                                                style={{ backgroundColor: color.hex }}
-                                                title={language === 'th' ? color.nameTh : color.name}
-                                            />
-                                        ))}
-                                    </div>
 
                                     {/* Product Info */}
                                     <Link href={product.href} className="block">
@@ -416,9 +278,6 @@ export default function ShopPage() {
 
                                         {/* Divider */}
                                         <div className="border-t border-gray-200 pt-2 flex items-center justify-between">
-                                            <span className="text-xs text-gray-600">
-                                                {language === 'th' ? selectedColor?.nameTh : selectedColor?.name}
-                                            </span>
                                             <div className="flex items-center gap-2">
                                                 {product.originalPrice && (
                                                     <span className="text-xs text-gray-400 line-through">
@@ -437,7 +296,7 @@ export default function ShopPage() {
                     </motion.div>
 
                     {/* Empty State */}
-                    {filteredProducts.length === 0 && (
+                    {!isLoading && filteredProducts.length === 0 && (
                         <div className="text-center py-12">
                             <p className="text-gray-500">
                                 {language === 'th' ? 'ไม่พบสินค้าที่ตรงกับตัวกรอง' : 'No products found matching your filters'}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db/prisma';
-import { requireAdmin } from '@/lib/auth';
+import { requireAdminPermission } from '@/lib/auth';
 
 type Params = Promise<{ id: string }>;
 
@@ -41,7 +41,7 @@ export async function PUT(
     { params }: { params: Params }
 ) {
     try {
-        await requireAdmin();
+        await requireAdminPermission('MANAGE_PRODUCTS');
 
         const { id } = await params;
         const body = await request.json();
@@ -91,7 +91,7 @@ export async function DELETE(
     { params }: { params: Params }
 ) {
     try {
-        await requireAdmin();
+        await requireAdminPermission('MANAGE_PRODUCTS');
 
         const { id } = await params;
 

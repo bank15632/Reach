@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, X, Image as ImageIcon, Loader2, GripVertical } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface ImageUploaderProps {
     images: string[];
@@ -15,6 +16,8 @@ export default function ImageUploader({
     onChange,
     maxImages = 10,
 }: ImageUploaderProps) {
+    const { language } = useLanguage();
+    const t = (en: string, th: string) => (language === 'th' ? th : en);
     const [isDragging, setIsDragging] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -36,7 +39,7 @@ export default function ImageUploader({
 
         const remainingSlots = maxImages - images.length;
         if (remainingSlots <= 0) {
-            setError(`Maximum ${maxImages} images allowed`);
+            setError(t(`Maximum ${maxImages} images allowed`, `อัปโหลดได้สูงสุด ${maxImages} รูป`));
             return;
         }
 
@@ -58,7 +61,7 @@ export default function ImageUploader({
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.error || 'Upload failed');
+                throw new Error(data.error || t('Upload failed', 'อัปโหลดไม่สำเร็จ'));
             }
 
             if (data.urls && data.urls.length > 0) {
@@ -69,7 +72,7 @@ export default function ImageUploader({
                 setError(data.errors.join(', '));
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Upload failed');
+            setError(err instanceof Error ? err.message : t('Upload failed', 'อัปโหลดไม่สำเร็จ'));
         } finally {
             setIsUploading(false);
         }
@@ -149,16 +152,19 @@ export default function ImageUploader({
                 {isUploading ? (
                     <div className="flex flex-col items-center gap-2">
                         <Loader2 className="w-10 h-10 text-brand-yellow animate-spin" />
-                        <p className="text-gray-600">กำลังอัพโหลด...</p>
+                        <p className="text-gray-600">{t('Uploading...', 'กำลังอัพโหลด...')}</p>
                     </div>
                 ) : (
                     <div className="flex flex-col items-center gap-2">
                         <Upload className="w-10 h-10 text-gray-400" />
                         <p className="text-gray-600">
-                            ลากไฟล์มาวางที่นี่ หรือ <span className="text-brand-yellow font-medium">คลิกเพื่อเลือก</span>
+                            {t('Drag files here or', 'ลากไฟล์มาวางที่นี่ หรือ')}{' '}
+                            <span className="text-brand-yellow font-medium">
+                                {t('click to select', 'คลิกเพื่อเลือก')}
+                            </span>
                         </p>
                         <p className="text-sm text-gray-400">
-                            JPEG, PNG, WebP, GIF (สูงสุด 5MB ต่อไฟล์)
+                            {t('JPEG, PNG, WebP, GIF (max 5MB per file)', 'JPEG, PNG, WebP, GIF (สูงสุด 5MB ต่อไฟล์)')}
                         </p>
                     </div>
                 )}
@@ -221,7 +227,7 @@ export default function ImageUploader({
                                 {/* Index Badge */}
                                 {index === 0 && (
                                     <div className="absolute top-2 left-2 px-2 py-1 bg-brand-yellow text-black text-xs font-medium rounded">
-                                        หลัก
+                                    {t('Main', 'หลัก')}
                                     </div>
                                 )}
                             </motion.div>
@@ -232,7 +238,7 @@ export default function ImageUploader({
 
             {/* Image Count */}
             <p className="text-sm text-gray-500 text-right">
-                {images.length} / {maxImages} รูป
+                {images.length} / {maxImages} {t('images', 'รูป')}
             </p>
         </div>
     );

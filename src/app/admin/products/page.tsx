@@ -14,6 +14,8 @@ import {
     Filter,
     X
 } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
+import AdminGuard from '@/components/admin/AdminGuard';
 
 interface Product {
     id: string;
@@ -39,15 +41,17 @@ interface Pagination {
 }
 
 const CATEGORIES = [
-    { value: '', label: 'ทั้งหมด' },
-    { value: 'RACKETS', label: 'ไม้แบด' },
-    { value: 'SHOES', label: 'รองเท้า' },
-    { value: 'SPORTSWEAR', label: 'เสื้อผ้ากีฬา' },
-    { value: 'SUPPLEMENTS', label: 'อาหารเสริม' },
-    { value: 'ACCESSORIES', label: 'อุปกรณ์เสริม' },
+    { value: '', labelEn: 'All', labelTh: 'ทั้งหมด' },
+    { value: 'RACKETS', labelEn: 'Rackets', labelTh: 'ไม้แบด' },
+    { value: 'SHOES', labelEn: 'Shoes', labelTh: 'รองเท้า' },
+    { value: 'SPORTSWEAR', labelEn: 'Sportswear', labelTh: 'เสื้อผ้ากีฬา' },
+    { value: 'SUPPLEMENTS', labelEn: 'Supplements', labelTh: 'อาหารเสริม' },
+    { value: 'ACCESSORIES', labelEn: 'Accessories', labelTh: 'อุปกรณ์เสริม' },
 ];
 
 export default function ProductsPage() {
+    const { language } = useLanguage();
+    const t = (en: string, th: string) => (language === 'th' ? th : en);
     const [products, setProducts] = useState<Product[]>([]);
     const [pagination, setPagination] = useState<Pagination>({
         page: 1,
@@ -117,27 +121,30 @@ export default function ProductsPage() {
     };
 
     const formatPrice = (price: number) => {
-        return new Intl.NumberFormat('th-TH').format(price);
+        return new Intl.NumberFormat(language === 'th' ? 'th-TH' : 'en-US').format(price);
     };
 
     const getCategoryLabel = (cat: string) => {
-        return CATEGORIES.find((c) => c.value === cat)?.label || cat;
+        const match = CATEGORIES.find((c) => c.value === cat);
+        if (!match) return cat;
+        return language === 'th' ? match.labelTh : match.labelEn;
     };
 
     return (
+        <AdminGuard permission="MANAGE_PRODUCTS">
         <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">สินค้า</h1>
-                    <p className="text-gray-500">จัดการสินค้าทั้งหมดในร้าน</p>
+                    <h1 className="text-2xl font-bold text-gray-900">{t('Products', 'สินค้า')}</h1>
+                    <p className="text-gray-500">{t('Manage all products in your store.', 'จัดการสินค้าทั้งหมดในร้าน')}</p>
                 </div>
                 <Link
                     href="/admin/products/new"
                     className="flex items-center gap-2 px-4 py-2 bg-brand-yellow text-black rounded-lg font-medium hover:bg-yellow-400 transition-colors"
                 >
                     <Plus className="w-5 h-5" />
-                    เพิ่มสินค้า
+                    {t('Add Product', 'เพิ่มสินค้า')}
                 </Link>
             </div>
 
@@ -150,7 +157,7 @@ export default function ProductsPage() {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="ค้นหาสินค้า..."
+                                placeholder={t('Search products...', 'ค้นหาสินค้า...')}
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-yellow/50"
@@ -171,7 +178,7 @@ export default function ProductsPage() {
                         >
                             {CATEGORIES.map((cat) => (
                                 <option key={cat.value} value={cat.value}>
-                                    {cat.label}
+                                    {language === 'th' ? cat.labelTh : cat.labelEn}
                                 </option>
                             ))}
                         </select>
@@ -184,12 +191,12 @@ export default function ProductsPage() {
                 {loading ? (
                     <div className="p-8 text-center">
                         <div className="animate-spin w-8 h-8 border-2 border-brand-yellow border-t-transparent rounded-full mx-auto" />
-                        <p className="mt-2 text-gray-500">กำลังโหลด...</p>
+                        <p className="mt-2 text-gray-500">{t('Loading...', 'กำลังโหลด...')}</p>
                     </div>
                 ) : products.length === 0 ? (
                     <div className="p-8 text-center">
                         <Package className="w-12 h-12 text-gray-300 mx-auto" />
-                        <p className="mt-2 text-gray-500">ไม่พบสินค้า</p>
+                        <p className="mt-2 text-gray-500">{t('No products found.', 'ไม่พบสินค้า')}</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
@@ -197,22 +204,22 @@ export default function ProductsPage() {
                             <thead className="bg-gray-50 border-b border-gray-200">
                                 <tr>
                                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
-                                        สินค้า
+                                        {t('Product', 'สินค้า')}
                                     </th>
                                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
-                                        หมวดหมู่
+                                        {t('Category', 'หมวดหมู่')}
                                     </th>
                                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
-                                        ราคา
+                                        {t('Price', 'ราคา')}
                                     </th>
                                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
-                                        สต็อก
+                                        {t('Stock', 'สต็อก')}
                                     </th>
                                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
-                                        สถานะ
+                                        {t('Status', 'สถานะ')}
                                     </th>
                                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">
-                                        จัดการ
+                                        {t('Actions', 'จัดการ')}
                                     </th>
                                 </tr>
                             </thead>
@@ -243,7 +250,7 @@ export default function ProductsPage() {
                                                 </div>
                                                 <div>
                                                     <p className="font-medium text-gray-900">
-                                                        {product.nameTh}
+                                                        {language === 'th' ? product.nameTh : product.name}
                                                     </p>
                                                     <p className="text-sm text-gray-500">
                                                         SKU: {product.sku}
@@ -287,16 +294,16 @@ export default function ProductsPage() {
                                             <div className="flex flex-col gap-1">
                                                 {product.inStock ? (
                                                     <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs w-fit">
-                                                        มีสินค้า
+                                                        {t('In stock', 'มีสินค้า')}
                                                     </span>
                                                 ) : (
                                                     <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs w-fit">
-                                                        หมด
+                                                        {t('Out of stock', 'หมด')}
                                                     </span>
                                                 )}
                                                 {product.featured && (
                                                     <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs w-fit">
-                                                        แนะนำ
+                                                        {t('Featured', 'แนะนำ')}
                                                     </span>
                                                 )}
                                             </div>
@@ -328,9 +335,9 @@ export default function ProductsPage() {
                 {pagination.totalPages > 1 && (
                     <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
                         <p className="text-sm text-gray-500">
-                            แสดง {(pagination.page - 1) * pagination.limit + 1} -{' '}
-                            {Math.min(pagination.page * pagination.limit, pagination.total)} จาก{' '}
-                            {pagination.total} รายการ
+                            {t('Showing', 'แสดง')} {(pagination.page - 1) * pagination.limit + 1} -{' '}
+                            {Math.min(pagination.page * pagination.limit, pagination.total)} {t('of', 'จาก')}{' '}
+                            {pagination.total} {t('items', 'รายการ')}
                         </p>
                         <div className="flex items-center gap-2">
                             <button
@@ -346,7 +353,7 @@ export default function ProductsPage() {
                                 <ChevronLeft className="w-5 h-5" />
                             </button>
                             <span className="px-4 py-2 text-sm">
-                                หน้า {pagination.page} / {pagination.totalPages}
+                                {t('Page', 'หน้า')} {pagination.page} / {pagination.totalPages}
                             </span>
                             <button
                                 onClick={() =>
@@ -375,7 +382,7 @@ export default function ProductsPage() {
                     >
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-lg font-semibold text-gray-900">
-                                ยืนยันการลบ
+                                {t('Confirm deletion', 'ยืนยันการลบ')}
                             </h3>
                             <button
                                 onClick={() => setDeleteId(null)}
@@ -385,26 +392,30 @@ export default function ProductsPage() {
                             </button>
                         </div>
                         <p className="text-gray-600 mb-6">
-                            คุณแน่ใจหรือไม่ว่าต้องการลบสินค้านี้? การกระทำนี้ไม่สามารถย้อนกลับได้
+                            {t(
+                                'Are you sure you want to delete this product? This action cannot be undone.',
+                                'คุณแน่ใจหรือไม่ว่าต้องการลบสินค้านี้? การกระทำนี้ไม่สามารถย้อนกลับได้'
+                            )}
                         </p>
                         <div className="flex items-center justify-end gap-3">
                             <button
                                 onClick={() => setDeleteId(null)}
                                 className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                             >
-                                ยกเลิก
+                                {t('Cancel', 'ยกเลิก')}
                             </button>
                             <button
                                 onClick={handleDelete}
                                 disabled={deleting}
                                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
                             >
-                                {deleting ? 'กำลังลบ...' : 'ลบสินค้า'}
+                                {deleting ? t('Deleting...', 'กำลังลบ...') : t('Delete product', 'ลบสินค้า')}
                             </button>
                         </div>
                     </motion.div>
                 </div>
             )}
         </div>
+        </AdminGuard>
     );
 }

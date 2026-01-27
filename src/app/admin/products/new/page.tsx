@@ -6,13 +6,15 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import ImageUploader from '@/components/admin/ImageUploader';
+import { useLanguage } from '@/context/LanguageContext';
+import AdminGuard from '@/components/admin/AdminGuard';
 
 const CATEGORIES = [
-    { value: 'RACKETS', label: 'ไม้แบด' },
-    { value: 'SHOES', label: 'รองเท้า' },
-    { value: 'SPORTSWEAR', label: 'เสื้อผ้ากีฬา' },
-    { value: 'SUPPLEMENTS', label: 'อาหารเสริม' },
-    { value: 'ACCESSORIES', label: 'อุปกรณ์เสริม' },
+    { value: 'RACKETS', labelEn: 'Rackets', labelTh: 'ไม้แบด' },
+    { value: 'SHOES', labelEn: 'Shoes', labelTh: 'รองเท้า' },
+    { value: 'SPORTSWEAR', labelEn: 'Sportswear', labelTh: 'เสื้อผ้ากีฬา' },
+    { value: 'SUPPLEMENTS', labelEn: 'Supplements', labelTh: 'อาหารเสริม' },
+    { value: 'ACCESSORIES', labelEn: 'Accessories', labelTh: 'อุปกรณ์เสริม' },
 ];
 
 interface ProductForm {
@@ -33,6 +35,8 @@ interface ProductForm {
 
 export default function NewProductPage() {
     const router = useRouter();
+    const { language } = useLanguage();
+    const t = (en: string, th: string) => (language === 'th' ? th : en);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [form, setForm] = useState<ProductForm>({
@@ -59,7 +63,7 @@ export default function NewProductPage() {
         try {
             // Validation
             if (!form.sku || !form.name || !form.nameTh || !form.price) {
-                throw new Error('กรุณากรอกข้อมูลที่จำเป็นให้ครบ');
+                throw new Error(t('Please fill in all required fields.', 'กรุณากรอกข้อมูลที่จำเป็นให้ครบ'));
             }
 
             const res = await fetch('/api/products', {
@@ -76,12 +80,12 @@ export default function NewProductPage() {
             const data = await res.json();
 
             if (!res.ok) {
-                throw new Error(data.error || 'เกิดข้อผิดพลาด');
+                throw new Error(data.error || t('Something went wrong.', 'เกิดข้อผิดพลาด'));
             }
 
             router.push('/admin/products');
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
+            setError(err instanceof Error ? err.message : t('Something went wrong.', 'เกิดข้อผิดพลาด'));
         } finally {
             setLoading(false);
         }
@@ -94,6 +98,7 @@ export default function NewProductPage() {
     };
 
     return (
+        <AdminGuard permission="MANAGE_PRODUCTS">
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center gap-4">
@@ -104,8 +109,8 @@ export default function NewProductPage() {
                     <ArrowLeft className="w-5 h-5" />
                 </Link>
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">เพิ่มสินค้าใหม่</h1>
-                    <p className="text-gray-500">กรอกข้อมูลสินค้าด้านล่าง</p>
+                    <h1 className="text-2xl font-bold text-gray-900">{t('Add New Product', 'เพิ่มสินค้าใหม่')}</h1>
+                    <p className="text-gray-500">{t('Fill in the product details below.', 'กรอกข้อมูลสินค้าด้านล่าง')}</p>
                 </div>
             </div>
 
@@ -125,7 +130,7 @@ export default function NewProductPage() {
                 {/* Basic Info */}
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                     <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                        ข้อมูลพื้นฐาน
+                        {t('Basic Information', 'ข้อมูลพื้นฐาน')}
                     </h2>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -150,7 +155,7 @@ export default function NewProductPage() {
                                     onClick={generateSku}
                                     className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                                 >
-                                    สร้างอัตโนมัติ
+                                    {t('Generate', 'สร้างอัตโนมัติ')}
                                 </button>
                             </div>
                         </div>
@@ -158,7 +163,7 @@ export default function NewProductPage() {
                         {/* Category */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                หมวดหมู่ <span className="text-red-500">*</span>
+                                {t('Category', 'หมวดหมู่')} <span className="text-red-500">*</span>
                             </label>
                             <select
                                 value={form.category}
@@ -169,7 +174,7 @@ export default function NewProductPage() {
                             >
                                 {CATEGORIES.map((cat) => (
                                     <option key={cat.value} value={cat.value}>
-                                        {cat.label}
+                                        {language === 'th' ? cat.labelTh : cat.labelEn}
                                     </option>
                                 ))}
                             </select>
@@ -178,7 +183,7 @@ export default function NewProductPage() {
                         {/* Name EN */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                ชื่อสินค้า (EN) <span className="text-red-500">*</span>
+                                {t('Product name (EN)', 'ชื่อสินค้า (EN)')} <span className="text-red-500">*</span>
                             </label>
                             <input
                                 type="text"
@@ -186,7 +191,7 @@ export default function NewProductPage() {
                                 onChange={(e) =>
                                     setForm((prev) => ({ ...prev, name: e.target.value }))
                                 }
-                                placeholder="Product Name"
+                                placeholder={t('Product Name', 'Product Name')}
                                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-yellow/50"
                                 required
                             />
@@ -195,7 +200,7 @@ export default function NewProductPage() {
                         {/* Name TH */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                ชื่อสินค้า (TH) <span className="text-red-500">*</span>
+                                {t('Product name (TH)', 'ชื่อสินค้า (TH)')} <span className="text-red-500">*</span>
                             </label>
                             <input
                                 type="text"
@@ -203,7 +208,7 @@ export default function NewProductPage() {
                                 onChange={(e) =>
                                     setForm((prev) => ({ ...prev, nameTh: e.target.value }))
                                 }
-                                placeholder="ชื่อสินค้า"
+                                placeholder={t('Thai product name', 'ชื่อสินค้า')}
                                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-yellow/50"
                                 required
                             />
@@ -212,7 +217,7 @@ export default function NewProductPage() {
                         {/* Brand */}
                         <div className="md:col-span-2">
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                แบรนด์
+                                {t('Brand', 'แบรนด์')}
                             </label>
                             <input
                                 type="text"
@@ -220,7 +225,7 @@ export default function NewProductPage() {
                                 onChange={(e) =>
                                     setForm((prev) => ({ ...prev, brand: e.target.value }))
                                 }
-                                placeholder="Yonex, Victor, Li-Ning..."
+                                placeholder={t('Yonex, Victor, Li-Ning...', 'Yonex, Victor, Li-Ning...')}
                                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-yellow/50"
                             />
                         </div>
@@ -228,7 +233,7 @@ export default function NewProductPage() {
                         {/* Description EN */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                รายละเอียด (EN)
+                                {t('Description (EN)', 'รายละเอียด (EN)')}
                             </label>
                             <textarea
                                 value={form.description}
@@ -239,7 +244,7 @@ export default function NewProductPage() {
                                     }))
                                 }
                                 rows={4}
-                                placeholder="Product description..."
+                                placeholder={t('Product description...', 'Product description...')}
                                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-yellow/50 resize-none"
                             />
                         </div>
@@ -247,7 +252,7 @@ export default function NewProductPage() {
                         {/* Description TH */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                รายละเอียด (TH)
+                                {t('Description (TH)', 'รายละเอียด (TH)')}
                             </label>
                             <textarea
                                 value={form.descriptionTh}
@@ -258,7 +263,7 @@ export default function NewProductPage() {
                                     }))
                                 }
                                 rows={4}
-                                placeholder="รายละเอียดสินค้า..."
+                                placeholder={t('Thai description...', 'รายละเอียดสินค้า...')}
                                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-yellow/50 resize-none"
                             />
                         </div>
@@ -268,14 +273,14 @@ export default function NewProductPage() {
                 {/* Pricing & Stock */}
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                     <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                        ราคาและสต็อก
+                        {t('Pricing & Stock', 'ราคาและสต็อก')}
                     </h2>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {/* Price */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                ราคา (บาท) <span className="text-red-500">*</span>
+                                {t('Price (THB)', 'ราคา (บาท)')} <span className="text-red-500">*</span>
                             </label>
                             <input
                                 type="number"
@@ -294,7 +299,7 @@ export default function NewProductPage() {
                         {/* Sale Price */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                ราคาลด (บาท)
+                                {t('Sale price (THB)', 'ราคาลด (บาท)')}
                             </label>
                             <input
                                 type="number"
@@ -312,7 +317,7 @@ export default function NewProductPage() {
                         {/* Stock */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                จำนวนสต็อก
+                                {t('Stock quantity', 'จำนวนสต็อก')}
                             </label>
                             <input
                                 type="number"
@@ -338,7 +343,7 @@ export default function NewProductPage() {
                                 }
                                 className="w-4 h-4 rounded border-gray-300 text-brand-yellow focus:ring-brand-yellow"
                             />
-                            <span className="text-sm text-gray-700">มีสินค้า</span>
+                            <span className="text-sm text-gray-700">{t('In stock', 'มีสินค้า')}</span>
                         </label>
 
                         <label className="flex items-center gap-2 cursor-pointer">
@@ -350,7 +355,7 @@ export default function NewProductPage() {
                                 }
                                 className="w-4 h-4 rounded border-gray-300 text-brand-yellow focus:ring-brand-yellow"
                             />
-                            <span className="text-sm text-gray-700">สินค้าแนะนำ</span>
+                            <span className="text-sm text-gray-700">{t('Featured', 'สินค้าแนะนำ')}</span>
                         </label>
                     </div>
                 </div>
@@ -358,7 +363,7 @@ export default function NewProductPage() {
                 {/* Images */}
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                     <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                        รูปภาพสินค้า
+                        {t('Product Images', 'รูปภาพสินค้า')}
                     </h2>
                     <ImageUploader
                         images={form.images}
@@ -373,7 +378,7 @@ export default function NewProductPage() {
                         href="/admin/products"
                         className="px-6 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                     >
-                        ยกเลิก
+                        {t('Cancel', 'ยกเลิก')}
                     </Link>
                     <button
                         type="submit"
@@ -383,17 +388,18 @@ export default function NewProductPage() {
                         {loading ? (
                             <>
                                 <Loader2 className="w-5 h-5 animate-spin" />
-                                กำลังบันทึก...
+                                {t('Saving...', 'กำลังบันทึก...')}
                             </>
                         ) : (
                             <>
                                 <Save className="w-5 h-5" />
-                                บันทึกสินค้า
+                                {t('Save Product', 'บันทึกสินค้า')}
                             </>
                         )}
                     </button>
                 </div>
             </form>
         </div>
+        </AdminGuard>
     );
 }

@@ -8,21 +8,92 @@ import Navbar from "@/components/ui/Navbar";
 import Breadcrumb from "@/components/ui/Breadcrumb";
 import { useLanguage } from "@/context/LanguageContext";
 import { ChevronRight } from "lucide-react";
-import { getArticleById, getArticlesExcluding } from "@/data/articleData";
+import { useEffect, useState } from "react";
+
+interface ArticleSection {
+    title: string;
+    titleEn: string;
+    content: string;
+    contentEn: string;
+    image: string;
+}
+
+interface Article {
+    id: string;
+    title: string;
+    titleEn: string;
+    excerpt: string;
+    excerptEn: string;
+    heroImage: string;
+    image?: string;
+    category: string;
+    categoryTh: string;
+    date: string;
+    sections: ArticleSection[];
+}
 
 export default function ArticleDetailPage() {
     const params = useParams();
     const articleId = params.articleId as string;
     const { language } = useLanguage();
+    const [article, setArticle] = useState<Article | null>(null);
+    const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const article = getArticleById(articleId);
+    useEffect(() => {
+        let isMounted = true;
 
-    if (!article) {
+        async function fetchData() {
+            try {
+                const [articleRes, listRes] = await Promise.all([
+                    fetch(`/api/articles/${articleId}`),
+                    fetch("/api/articles"),
+                ]);
+
+                if (!articleRes.ok) {
+                    if (isMounted) {
+                        setArticle(null);
+                        setLoading(false);
+                    }
+                    return;
+                }
+
+                const articleData = await articleRes.json();
+                const listData = await listRes.json();
+
+                if (isMounted) {
+                    setArticle(articleData.article);
+                    const list = (listData.articles || []) as Article[];
+                    setRelatedArticles(list.filter((a) => a.id !== articleId).slice(0, 3));
+                    setLoading(false);
+                }
+            } catch (error) {
+                console.error("Error fetching article:", error);
+                if (isMounted) {
+                    setLoading(false);
+                }
+            }
+        }
+
+        fetchData();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [articleId]);
+
+    if (!loading && !article) {
         notFound();
     }
 
-    // Get related articles (exclude current)
-    const relatedArticles = getArticlesExcluding(articleId).slice(0, 3);
+    if (loading || !article) {
+        return (
+            <main className="bg-brand-black min-h-screen">
+                <Navbar />
+                <div className="pt-32 text-center text-gray-400">กำลังโหลด...</div>
+            </main>
+        );
+    }
 
     return (
         <main className="bg-brand-black min-h-screen">

@@ -12,10 +12,76 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://reach-store.com';
+
 export const metadata: Metadata = {
-  title: "REACH | Pro Badminton Store",
-  description: "Professional grade badminton equipment. Rackets, shoes, and tournament bundles for champions.",
-  keywords: ["badminton", "racket", "shoes", "pro", "tournament", "reach", "store"],
+  metadataBase: new URL(baseUrl),
+  title: {
+    default: "REACH | Premium Badminton Equipment - Worldwide Shipping",
+    template: "%s | REACH Badminton"
+  },
+  description: "Shop premium badminton equipment from Thailand. Professional rackets, shoes, sportswear with international shipping. Free shipping on orders over $250.",
+  keywords: [
+    "badminton", "badminton racket", "badminton shoes", "badminton equipment",
+    "professional badminton", "REACH badminton", "Thailand badminton store",
+    "international badminton shop", "buy badminton online", "premium rackets"
+  ],
+  authors: [{ name: "REACH Pro Store" }],
+  creator: "REACH",
+  publisher: "REACH Pro Store",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    alternateLocale: ["th_TH"],
+    url: baseUrl,
+    siteName: "REACH Badminton",
+    title: "REACH | Premium Badminton Equipment",
+    description: "Shop premium badminton equipment from Thailand. Professional rackets, shoes, and sportswear with worldwide shipping.",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "REACH Badminton - Premium Equipment"
+      }
+    ]
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "REACH | Premium Badminton Equipment",
+    description: "Shop premium badminton equipment from Thailand with worldwide shipping.",
+    images: ["/og-image.jpg"]
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  alternates: {
+    canonical: baseUrl,
+    languages: {
+      'en': baseUrl,
+      'th': `${baseUrl}?lang=th`,
+    },
+  },
+  verification: {
+    // Add these when you have the verification codes
+    // google: 'verification_token',
+    // yandex: 'verification_token',
+    // bing: 'verification_token',
+  },
+  category: 'ecommerce',
 };
 
 export default function RootLayout({

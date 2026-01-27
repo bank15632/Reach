@@ -13,6 +13,8 @@ import {
     Save,
     Loader2,
 } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
+import AdminGuard from '@/components/admin/AdminGuard';
 
 interface OrderItem {
     id: string;
@@ -70,12 +72,12 @@ interface Order {
 }
 
 const STATUS_OPTIONS = [
-    { value: 'PENDING', label: 'รอดำเนินการ', icon: Clock, color: 'yellow' },
-    { value: 'CONFIRMED', label: 'ยืนยันแล้ว', icon: CheckCircle, color: 'blue' },
-    { value: 'PROCESSING', label: 'กำลังจัดเตรียม', icon: Package, color: 'purple' },
-    { value: 'SHIPPED', label: 'จัดส่งแล้ว', icon: Truck, color: 'indigo' },
-    { value: 'DELIVERED', label: 'ส่งถึงแล้ว', icon: CheckCircle, color: 'green' },
-    { value: 'CANCELLED', label: 'ยกเลิก', icon: XCircle, color: 'red' },
+    { value: 'PENDING', labelEn: 'Pending', labelTh: 'รอดำเนินการ', icon: Clock, color: 'yellow' },
+    { value: 'CONFIRMED', labelEn: 'Confirmed', labelTh: 'ยืนยันแล้ว', icon: CheckCircle, color: 'blue' },
+    { value: 'PROCESSING', labelEn: 'Processing', labelTh: 'กำลังจัดเตรียม', icon: Package, color: 'purple' },
+    { value: 'SHIPPED', labelEn: 'Shipped', labelTh: 'จัดส่งแล้ว', icon: Truck, color: 'indigo' },
+    { value: 'DELIVERED', labelEn: 'Delivered', labelTh: 'ส่งถึงแล้ว', icon: CheckCircle, color: 'green' },
+    { value: 'CANCELLED', labelEn: 'Cancelled', labelTh: 'ยกเลิก', icon: XCircle, color: 'red' },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -93,6 +95,8 @@ export default function OrderDetailPage({
     params: Promise<{ id: string }>;
 }) {
     const { id } = use(params);
+    const { language } = useLanguage();
+    const t = (en: string, th: string) => (language === 'th' ? th : en);
     const [order, setOrder] = useState<Order | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -114,7 +118,7 @@ export default function OrderDetailPage({
                 setNewStatus(data.order.status);
                 setTrackingNumber(data.order.trackingNumber || '');
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
+                setError(err instanceof Error ? err.message : t('Something went wrong.', 'เกิดข้อผิดพลาด'));
             } finally {
                 setLoading(false);
             }
@@ -142,24 +146,24 @@ export default function OrderDetailPage({
             const data = await res.json();
 
             if (!res.ok) {
-                throw new Error(data.error || 'เกิดข้อผิดพลาด');
+                throw new Error(data.error || t('Something went wrong.', 'เกิดข้อผิดพลาด'));
             }
 
             setOrder(data.order);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
+            setError(err instanceof Error ? err.message : t('Something went wrong.', 'เกิดข้อผิดพลาด'));
         } finally {
             setSaving(false);
         }
     };
 
     const formatPrice = (price: number) => {
-        return new Intl.NumberFormat('th-TH').format(price);
+        return new Intl.NumberFormat(language === 'th' ? 'th-TH' : 'en-US').format(price);
     };
 
     const formatDate = (date: string | null) => {
         if (!date) return '-';
-        return new Intl.DateTimeFormat('th-TH', {
+        return new Intl.DateTimeFormat(language === 'th' ? 'th-TH' : 'en-US', {
             year: 'numeric',
             month: 'long',
             day: 'numeric',
@@ -169,7 +173,9 @@ export default function OrderDetailPage({
     };
 
     const getStatusLabel = (s: string) => {
-        return STATUS_OPTIONS.find((opt) => opt.value === s)?.label || s;
+        const match = STATUS_OPTIONS.find((opt) => opt.value === s);
+        if (!match) return s;
+        return language === 'th' ? match.labelTh : match.labelEn;
     };
 
     if (loading) {
@@ -177,7 +183,7 @@ export default function OrderDetailPage({
             <div className="flex items-center justify-center min-h-[400px]">
                 <div className="text-center">
                     <div className="animate-spin w-8 h-8 border-2 border-brand-yellow border-t-transparent rounded-full mx-auto" />
-                    <p className="mt-2 text-gray-500">กำลังโหลด...</p>
+                    <p className="mt-2 text-gray-500">{t('Loading...', 'กำลังโหลด...')}</p>
                 </div>
             </div>
         );
@@ -186,15 +192,16 @@ export default function OrderDetailPage({
     if (!order) {
         return (
             <div className="text-center py-12">
-                <p className="text-gray-500">ไม่พบคำสั่งซื้อ</p>
+                <p className="text-gray-500">{t('Order not found.', 'ไม่พบคำสั่งซื้อ')}</p>
                 <Link href="/admin/orders" className="text-brand-yellow hover:underline mt-2 inline-block">
-                    กลับไปหน้ารายการ
+                    {t('Back to orders', 'กลับไปหน้ารายการ')}
                 </Link>
             </div>
         );
     }
 
     return (
+        <AdminGuard permission="MANAGE_ORDERS">
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center gap-4">
@@ -206,7 +213,7 @@ export default function OrderDetailPage({
                 </Link>
                 <div className="flex-1">
                     <h1 className="text-2xl font-bold text-gray-900">
-                        คำสั่งซื้อ #{order.orderNumber}
+                        {t('Order', 'คำสั่งซื้อ')} #{order.orderNumber}
                     </h1>
                     <p className="text-gray-500">{formatDate(order.createdAt)}</p>
                 </div>
@@ -232,7 +239,7 @@ export default function OrderDetailPage({
                     {/* Order Items */}
                     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                         <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                            รายการสินค้า
+                            {t('Order items', 'รายการสินค้า')}
                         </h2>
                         <div className="space-y-4">
                             {order.items.map((item) => (
@@ -256,7 +263,9 @@ export default function OrderDetailPage({
                                     </div>
                                     <div className="flex-1">
                                         <p className="font-medium text-gray-900">
-                                            {item.product?.nameTh || item.bundle?.nameTh || 'Unknown'}
+                                            {language === 'th'
+                                                ? item.product?.nameTh || item.bundle?.nameTh || t('Unknown', 'ไม่ทราบชื่อ')
+                                                : item.product?.name || item.bundle?.name || t('Unknown', 'ไม่ทราบชื่อ')}
                                         </p>
                                         {item.variant && (
                                             <p className="text-sm text-gray-500">
@@ -264,7 +273,7 @@ export default function OrderDetailPage({
                                             </p>
                                         )}
                                         <p className="text-sm text-gray-500">
-                                            จำนวน: {item.quantity} x ฿{formatPrice(item.unitPrice)}
+                                            {t('Qty', 'จำนวน')}: {item.quantity} x ฿{formatPrice(item.unitPrice)}
                                         </p>
                                     </div>
                                     <div className="text-right">
@@ -279,21 +288,21 @@ export default function OrderDetailPage({
                         {/* Order Summary */}
                         <div className="mt-6 pt-4 border-t border-gray-200 space-y-2">
                             <div className="flex justify-between text-sm">
-                                <span className="text-gray-500">ยอดรวมสินค้า</span>
+                                <span className="text-gray-500">{t('Subtotal', 'ยอดรวมสินค้า')}</span>
                                 <span>฿{formatPrice(order.subtotal)}</span>
                             </div>
                             {order.discount > 0 && (
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-gray-500">ส่วนลด</span>
+                                    <span className="text-gray-500">{t('Discount', 'ส่วนลด')}</span>
                                     <span className="text-red-600">-฿{formatPrice(order.discount)}</span>
                                 </div>
                             )}
                             <div className="flex justify-between text-sm">
-                                <span className="text-gray-500">ค่าจัดส่ง</span>
-                                <span>{order.shippingFee > 0 ? `฿${formatPrice(order.shippingFee)}` : 'ฟรี'}</span>
+                                <span className="text-gray-500">{t('Shipping', 'ค่าจัดส่ง')}</span>
+                                <span>{order.shippingFee > 0 ? `฿${formatPrice(order.shippingFee)}` : t('Free', 'ฟรี')}</span>
                             </div>
                             <div className="flex justify-between text-lg font-semibold pt-2 border-t border-gray-200">
-                                <span>ยอดรวมทั้งหมด</span>
+                                <span>{t('Total', 'ยอดรวมทั้งหมด')}</span>
                                 <span className="text-brand-yellow">฿{formatPrice(order.total)}</span>
                             </div>
                         </div>
@@ -302,32 +311,32 @@ export default function OrderDetailPage({
                     {/* Customer Info */}
                     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                         <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                            ข้อมูลลูกค้า
+                            {t('Customer information', 'ข้อมูลลูกค้า')}
                         </h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <p className="text-sm text-gray-500 mb-1">ชื่อ</p>
+                                <p className="text-sm text-gray-500 mb-1">{t('Name', 'ชื่อ')}</p>
                                 <p className="font-medium">{order.user.firstName} {order.user.lastName}</p>
                             </div>
                             <div>
-                                <p className="text-sm text-gray-500 mb-1">อีเมล</p>
+                                <p className="text-sm text-gray-500 mb-1">{t('Email', 'อีเมล')}</p>
                                 <p className="font-medium">{order.user.email}</p>
                             </div>
                             <div>
-                                <p className="text-sm text-gray-500 mb-1">เบอร์โทร</p>
+                                <p className="text-sm text-gray-500 mb-1">{t('Phone', 'เบอร์โทร')}</p>
                                 <p className="font-medium">{order.user.phone || '-'}</p>
                             </div>
                         </div>
 
                         {order.address && (
                             <div className="mt-6 pt-4 border-t border-gray-200">
-                                <p className="text-sm text-gray-500 mb-2">ที่อยู่จัดส่ง</p>
+                                <p className="text-sm text-gray-500 mb-2">{t('Shipping address', 'ที่อยู่จัดส่ง')}</p>
                                 <p className="font-medium">{order.address.fullName}</p>
                                 <p className="text-gray-600">
                                     {order.address.address}, {order.address.subDistrict}, {order.address.district},{' '}
                                     {order.address.province} {order.address.postalCode}
                                 </p>
-                                <p className="text-gray-600">โทร: {order.address.phone}</p>
+                                <p className="text-gray-600">{t('Phone', 'โทร')}: {order.address.phone}</p>
                             </div>
                         )}
                     </div>
@@ -338,13 +347,13 @@ export default function OrderDetailPage({
                     {/* Update Status */}
                     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                         <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                            อัพเดทสถานะ
+                            {t('Update status', 'อัพเดทสถานะ')}
                         </h2>
 
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    สถานะ
+                                    {t('Status', 'สถานะ')}
                                 </label>
                                 <select
                                     value={newStatus}
@@ -353,7 +362,7 @@ export default function OrderDetailPage({
                                 >
                                     {STATUS_OPTIONS.map((opt) => (
                                         <option key={opt.value} value={opt.value}>
-                                            {opt.label}
+                                            {language === 'th' ? opt.labelTh : opt.labelEn}
                                         </option>
                                     ))}
                                 </select>
@@ -361,7 +370,7 @@ export default function OrderDetailPage({
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    เลข Tracking
+                                    {t('Tracking number', 'เลข Tracking')}
                                 </label>
                                 <input
                                     type="text"
@@ -380,12 +389,12 @@ export default function OrderDetailPage({
                                 {saving ? (
                                     <>
                                         <Loader2 className="w-5 h-5 animate-spin" />
-                                        กำลังบันทึก...
+                                        {t('Saving...', 'กำลังบันทึก...')}
                                     </>
                                 ) : (
                                     <>
                                         <Save className="w-5 h-5" />
-                                        บันทึก
+                                        {t('Save', 'บันทึก')}
                                     </>
                                 )}
                             </button>
@@ -395,7 +404,7 @@ export default function OrderDetailPage({
                     {/* Timeline */}
                     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                         <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                            Timeline
+                            {t('Timeline', 'ไทม์ไลน์')}
                         </h2>
                         <div className="space-y-4">
                             <div className="flex items-center gap-3">
@@ -403,7 +412,7 @@ export default function OrderDetailPage({
                                     <CheckCircle className="w-4 h-4 text-green-600" />
                                 </div>
                                 <div>
-                                    <p className="font-medium text-gray-900">สร้างคำสั่งซื้อ</p>
+                                    <p className="font-medium text-gray-900">{t('Order created', 'สร้างคำสั่งซื้อ')}</p>
                                     <p className="text-sm text-gray-500">{formatDate(order.createdAt)}</p>
                                 </div>
                             </div>
@@ -413,7 +422,7 @@ export default function OrderDetailPage({
                                         <Truck className="w-4 h-4 text-indigo-600" />
                                     </div>
                                     <div>
-                                        <p className="font-medium text-gray-900">จัดส่งแล้ว</p>
+                                    <p className="font-medium text-gray-900">{t('Shipped', 'จัดส่งแล้ว')}</p>
                                         <p className="text-sm text-gray-500">{formatDate(order.shippedAt)}</p>
                                     </div>
                                 </div>
@@ -424,7 +433,7 @@ export default function OrderDetailPage({
                                         <CheckCircle className="w-4 h-4 text-green-600" />
                                     </div>
                                     <div>
-                                        <p className="font-medium text-gray-900">ส่งถึงแล้ว</p>
+                                <p className="font-medium text-gray-900">{t('Delivered', 'ส่งถึงแล้ว')}</p>
                                         <p className="text-sm text-gray-500">{formatDate(order.deliveredAt)}</p>
                                     </div>
                                 </div>
@@ -435,21 +444,23 @@ export default function OrderDetailPage({
                     {/* Payment Info */}
                     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                         <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                            การชำระเงิน
+                            {t('Payment', 'การชำระเงิน')}
                         </h2>
                         <div className="space-y-3">
                             <div className="flex justify-between">
-                                <span className="text-gray-500">วิธีชำระ</span>
+                                <span className="text-gray-500">{t('Method', 'วิธีชำระ')}</span>
                                 <span className="font-medium">{order.paymentMethod || '-'}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-gray-500">สถานะ</span>
+                                <span className="text-gray-500">{t('Status', 'สถานะ')}</span>
                                 <span className={`px-2 py-1 rounded text-xs font-medium ${
                                     order.paymentStatus === 'PAID'
                                         ? 'bg-green-100 text-green-700'
                                         : 'bg-yellow-100 text-yellow-700'
                                 }`}>
-                                    {order.paymentStatus === 'PAID' ? 'ชำระแล้ว' : 'รอชำระ'}
+                                    {order.paymentStatus === 'PAID'
+                                        ? t('Paid', 'ชำระแล้ว')
+                                        : t('Pending payment', 'รอชำระ')}
                                 </span>
                             </div>
                         </div>
@@ -457,5 +468,6 @@ export default function OrderDetailPage({
                 </div>
             </div>
         </div>
+        </AdminGuard>
     );
 }

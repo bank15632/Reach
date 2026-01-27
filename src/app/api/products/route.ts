@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db/prisma';
 import { Category } from '@prisma/client';
-import { requireAdmin } from '@/lib/auth';
+import { requireAdminPermission } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
     try {
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         // Require admin authentication
-        await requireAdmin();
+        await requireAdminPermission('MANAGE_PRODUCTS');
 
         const body = await request.json();
 

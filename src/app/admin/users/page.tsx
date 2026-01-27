@@ -12,6 +12,8 @@ import {
     Filter,
     User,
 } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
+import AdminGuard from '@/components/admin/AdminGuard';
 
 interface UserData {
     id: string;
@@ -36,10 +38,11 @@ interface Pagination {
 }
 
 const ROLE_OPTIONS = [
-    { value: '', label: 'ทั้งหมด' },
-    { value: 'USER', label: 'ผู้ใช้' },
-    { value: 'PARTNER', label: 'พาร์ทเนอร์' },
-    { value: 'ADMIN', label: 'แอดมิน' },
+    { value: '', labelEn: 'All', labelTh: 'ทั้งหมด' },
+    { value: 'USER', labelEn: 'User', labelTh: 'ผู้ใช้' },
+    { value: 'PARTNER', labelEn: 'Partner', labelTh: 'พาร์ทเนอร์' },
+    { value: 'ADMIN', labelEn: 'Admin', labelTh: 'แอดมิน' },
+    { value: 'SUPER_ADMIN', labelEn: 'Super Admin', labelTh: 'แอดมินสูงสุด' },
 ];
 
 const ROLE_COLORS: Record<string, string> = {
@@ -49,6 +52,8 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 export default function UsersPage() {
+    const { language } = useLanguage();
+    const t = (en: string, th: string) => (language === 'th' ? th : en);
     const [users, setUsers] = useState<UserData[]>([]);
     const [pagination, setPagination] = useState<Pagination>({
         page: 1,
@@ -95,7 +100,7 @@ export default function UsersPage() {
     };
 
     const formatDate = (date: string) => {
-        return new Intl.DateTimeFormat('th-TH', {
+        return new Intl.DateTimeFormat(language === 'th' ? 'th-TH' : 'en-US', {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
@@ -103,15 +108,18 @@ export default function UsersPage() {
     };
 
     const getRoleLabel = (r: string) => {
-        return ROLE_OPTIONS.find((opt) => opt.value === r)?.label || r;
+        const match = ROLE_OPTIONS.find((opt) => opt.value === r);
+        if (!match) return r;
+        return language === 'th' ? match.labelTh : match.labelEn;
     };
 
     return (
+        <AdminGuard permission="MANAGE_USERS">
         <div className="space-y-6">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold text-gray-900">ผู้ใช้</h1>
-                <p className="text-gray-500">จัดการผู้ใช้ทั้งหมดในระบบ</p>
+                <h1 className="text-2xl font-bold text-gray-900">{t('Users', 'ผู้ใช้')}</h1>
+                <p className="text-gray-500">{t('Manage all users in the system.', 'จัดการผู้ใช้ทั้งหมดในระบบ')}</p>
             </div>
 
             {/* Filters */}
@@ -123,7 +131,7 @@ export default function UsersPage() {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="ค้นหาด้วยชื่อ หรืออีเมล..."
+                                placeholder={t('Search by name or email...', 'ค้นหาด้วยชื่อ หรืออีเมล...')}
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-yellow/50"
@@ -144,7 +152,7 @@ export default function UsersPage() {
                         >
                             {ROLE_OPTIONS.map((opt) => (
                                 <option key={opt.value} value={opt.value}>
-                                    {opt.label}
+                                    {language === 'th' ? opt.labelTh : opt.labelEn}
                                 </option>
                             ))}
                         </select>
@@ -157,12 +165,12 @@ export default function UsersPage() {
                 {loading ? (
                     <div className="p-8 text-center">
                         <div className="animate-spin w-8 h-8 border-2 border-brand-yellow border-t-transparent rounded-full mx-auto" />
-                        <p className="mt-2 text-gray-500">กำลังโหลด...</p>
+                        <p className="mt-2 text-gray-500">{t('Loading...', 'กำลังโหลด...')}</p>
                     </div>
                 ) : users.length === 0 ? (
                     <div className="p-8 text-center">
                         <UsersIcon className="w-12 h-12 text-gray-300 mx-auto" />
-                        <p className="mt-2 text-gray-500">ไม่พบผู้ใช้</p>
+                        <p className="mt-2 text-gray-500">{t('No users found.', 'ไม่พบผู้ใช้')}</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
@@ -170,22 +178,22 @@ export default function UsersPage() {
                             <thead className="bg-gray-50 border-b border-gray-200">
                                 <tr>
                                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
-                                        ผู้ใช้
+                                        {t('User', 'ผู้ใช้')}
                                     </th>
                                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
-                                        อีเมล
+                                        {t('Email', 'อีเมล')}
                                     </th>
                                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
-                                        Role
+                                        {t('Role', 'Role')}
                                     </th>
                                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
-                                        คำสั่งซื้อ
+                                        {t('Orders', 'คำสั่งซื้อ')}
                                     </th>
                                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
-                                        สมัครเมื่อ
+                                        {t('Joined', 'สมัครเมื่อ')}
                                     </th>
                                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">
-                                        จัดการ
+                                        {t('Actions', 'จัดการ')}
                                     </th>
                                 </tr>
                             </thead>
@@ -219,7 +227,7 @@ export default function UsersPage() {
                                                         {user.firstName} {user.lastName}
                                                     </p>
                                                     <p className="text-sm text-gray-500">
-                                                        {user.rewardPoints} แต้ม
+                                                        {user.rewardPoints} {t('points', 'แต้ม')}
                                                     </p>
                                                 </div>
                                             </div>
@@ -238,7 +246,7 @@ export default function UsersPage() {
                                         </td>
                                         <td className="px-4 py-3">
                                             <span className="text-gray-600">
-                                                {user._count.orders} รายการ
+                                                {user._count.orders} {t('orders', 'รายการ')}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
@@ -267,9 +275,9 @@ export default function UsersPage() {
                 {pagination.totalPages > 1 && (
                     <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
                         <p className="text-sm text-gray-500">
-                            แสดง {(pagination.page - 1) * pagination.limit + 1} -{' '}
-                            {Math.min(pagination.page * pagination.limit, pagination.total)} จาก{' '}
-                            {pagination.total} รายการ
+                            {t('Showing', 'แสดง')} {(pagination.page - 1) * pagination.limit + 1} -{' '}
+                            {Math.min(pagination.page * pagination.limit, pagination.total)} {t('of', 'จาก')}{' '}
+                            {pagination.total} {t('items', 'รายการ')}
                         </p>
                         <div className="flex items-center gap-2">
                             <button
@@ -285,7 +293,7 @@ export default function UsersPage() {
                                 <ChevronLeft className="w-5 h-5" />
                             </button>
                             <span className="px-4 py-2 text-sm">
-                                หน้า {pagination.page} / {pagination.totalPages}
+                                {t('Page', 'หน้า')} {pagination.page} / {pagination.totalPages}
                             </span>
                             <button
                                 onClick={() =>
@@ -304,5 +312,6 @@ export default function UsersPage() {
                 )}
             </div>
         </div>
+        </AdminGuard>
     );
 }

@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 import Navbar from "@/components/ui/Navbar";
 import { useLanguage } from "@/context/LanguageContext";
-import { articles as articleData, Article } from "@/data/articleData";
-import { bundleProducts } from "@/data/productData";
+import { ApiArticle, ApiBundle, fetchArticles, fetchBundles } from "@/lib/apiClient";
 
 // Hero Section
 function WelcomeHero() {
@@ -119,13 +118,9 @@ function ShopByCategory() {
 }
 
 // Before You Decide - Article Cards Section
-function BeforeYouDecide() {
+function BeforeYouDecide({ articles, isLoading }: { articles: ApiArticle[]; isLoading: boolean }) {
     const { language } = useLanguage();
-
-    const featuredArticleIds = ['choose-racket', 'choose-shoes', 'choose-apparel', 'proper-training'];
-    const featuredArticles = featuredArticleIds
-        .map((id) => articleData.find((article) => article.id === id))
-        .filter((article): article is Article => Boolean(article));
+    const featuredArticles = articles.slice(0, 4);
 
     return (
         <section className="py-12 bg-white">
@@ -142,6 +137,16 @@ function BeforeYouDecide() {
 
                 {/* 4-Column Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {isLoading && (
+                        <div className="col-span-full text-center text-gray-500">
+                            {language === 'th' ? 'กำลังโหลดบทความ...' : 'Loading articles...'}
+                        </div>
+                    )}
+                    {!isLoading && featuredArticles.length === 0 && (
+                        <div className="col-span-full text-center text-gray-500">
+                            {language === 'th' ? 'ยังไม่มีบทความ' : 'No articles available'}
+                        </div>
+                    )}
                     {featuredArticles.map((article, index) => (
                         <motion.a
                             key={article.id}
@@ -176,7 +181,7 @@ function BeforeYouDecide() {
 }
 
 // Shop The Look - NOBULL Style Full Width with Floating Card
-function ShopTheLook() {
+function ShopTheLook({ bundles, isLoading }: { bundles: ApiBundle[]; isLoading: boolean }) {
     const { language } = useLanguage();
 
     return (
@@ -194,7 +199,17 @@ function ShopTheLook() {
 
                 {/* 2-Column Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {bundleProducts.map((bundle, index) => (
+                    {isLoading && (
+                        <div className="col-span-full text-center text-gray-500">
+                            {language === 'th' ? 'กำลังโหลดเซ็ต...' : 'Loading bundles...'}
+                        </div>
+                    )}
+                    {!isLoading && bundles.length === 0 && (
+                        <div className="col-span-full text-center text-gray-500">
+                            {language === 'th' ? 'ยังไม่มีเซ็ตสินค้า' : 'No bundles available'}
+                        </div>
+                    )}
+                    {bundles.map((bundle, index) => (
                         <motion.a
                             key={bundle.id}
                             href={`/bundles/${bundle.id}`}
@@ -207,7 +222,7 @@ function ShopTheLook() {
                             {/* Card Image Background */}
                             <div
                                 className="absolute inset-0 bg-cover bg-center"
-                                style={{ backgroundImage: `url('${bundle.images[0]}')` }}
+                                style={{ backgroundImage: `url('${bundle.images?.[0] || "/placeholder.png"}')` }}
                             />
 
                             {/* Set Name Label - Top Left, White Text, No Background */}
@@ -219,50 +234,32 @@ function ShopTheLook() {
 
                             {/* Floating Product Card - Bottom Right */}
                             <div className="absolute bottom-3 right-3 md:bottom-4 md:right-4 w-[200px] md:w-[260px] bg-white shadow-2xl rounded-lg">
-                                {/* Card Header */}
                                 <div className="p-3 pb-2 border-b border-gray-100">
                                     <h4 className="text-sm md:text-base font-bold text-black">
                                         {language === 'th' ? 'รายละเอียดในเซ็ต' : 'In the Bundle'}
                                     </h4>
                                 </div>
-
-                                {/* Products List - Compact */}
                                 <div className="p-3 space-y-2">
-                                    {/* Main Product */}
-                                    {bundle.items[0] && (
-                                        <div className="flex gap-2">
+                                    {(bundle.items ?? []).slice(0, 3).map((item) => (
+                                        <div key={item.id} className="flex gap-2">
                                             <div className="w-10 h-10 bg-gray-50 flex-shrink-0 overflow-hidden rounded">
                                                 <div
                                                     className="w-full h-full bg-contain bg-center bg-no-repeat"
-                                                    style={{ backgroundImage: `url('${bundle.items[0].image}')` }}
+                                                    style={{ backgroundImage: `url('${item.product?.images?.[0] || "/placeholder.png"}')` }}
                                                 />
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-xs font-medium text-black truncate">
-                                                    {language === 'th' ? bundle.items[0].nameTh : bundle.items[0].name}
+                                                    {item.product
+                                                        ? language === 'th'
+                                                            ? item.product.nameTh
+                                                            : item.product.name
+                                                        : language === 'th'
+                                                            ? `สินค้า ${item.productId}`
+                                                            : `Product ${item.productId}`}
                                                 </p>
                                                 <p className="text-xs font-bold text-black">
-                                                    ฿{bundle.items[0].price.toLocaleString()}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Side Products */}
-                                    {bundle.items.slice(1, 3).map((product, pIndex) => (
-                                        <div key={pIndex} className="flex gap-2">
-                                            <div className="w-10 h-10 bg-gray-50 flex-shrink-0 overflow-hidden rounded">
-                                                <div
-                                                    className="w-full h-full bg-contain bg-center bg-no-repeat"
-                                                    style={{ backgroundImage: `url('${product.image}')` }}
-                                                />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-xs font-medium text-black truncate">
-                                                    {language === 'th' ? product.nameTh : product.name}
-                                                </p>
-                                                <p className="text-xs font-bold text-black">
-                                                    ฿{product.price.toLocaleString()}
+                                                    ฿{item.product?.price?.toLocaleString() ?? "-"}
                                                 </p>
                                             </div>
                                         </div>
@@ -532,12 +529,45 @@ function WelcomeFooter() {
 
 // Main Welcome Page
 export default function WelcomePage() {
+    const [articles, setArticles] = useState<ApiArticle[]>([]);
+    const [bundles, setBundles] = useState<ApiBundle[]>([]);
+    const [isLoadingArticles, setIsLoadingArticles] = useState(true);
+    const [isLoadingBundles, setIsLoadingBundles] = useState(true);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        async function loadData() {
+            try {
+                const [articleData, bundleData] = await Promise.all([
+                    fetchArticles({ limit: 4 }),
+                    fetchBundles({ limit: 2 }),
+                ]);
+
+                if (!isMounted) return;
+                setArticles(articleData);
+                setBundles(bundleData);
+            } finally {
+                if (isMounted) {
+                    setIsLoadingArticles(false);
+                    setIsLoadingBundles(false);
+                }
+            }
+        }
+
+        loadData();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
     return (
         <main>
             <Navbar />
             <WelcomeHero />
-            <BeforeYouDecide />
-            <ShopTheLook />
+            <BeforeYouDecide articles={articles} isLoading={isLoadingArticles} />
+            <ShopTheLook bundles={bundles} isLoading={isLoadingBundles} />
             <HelpSection />
             <VideoShowcase />
             <WelcomeFooter />

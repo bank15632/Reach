@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin, getCurrentUser } from '@/lib/auth';
+import { requireAdminPermission, requireSuperAdmin } from '@/lib/auth';
+import { ADMIN_PERMISSION_KEYS } from '@/lib/adminAccess';
 import prisma from '@/lib/db/prisma';
 
 type Params = Promise<{ id: string }>;
@@ -9,7 +10,7 @@ export async function GET(
     { params }: { params: Params }
 ) {
     try {
-        await requireAdmin();
+        await requireAdminPermission('MANAGE_USERS');
 
         const { id } = await params;
 
@@ -23,6 +24,7 @@ export async function GET(
                 phone: true,
                 avatar: true,
                 role: true,
+                adminPermissions: true,
                 rewardPoints: true,
                 createdAt: true,
                 orders: {
@@ -84,7 +86,7 @@ export async function PUT(
     { params }: { params: Params }
 ) {
     try {
-        const admin = await requireAdmin();
+        const admin = await requireSuperAdmin();
 
         const { id } = await params;
         const body = await request.json();
@@ -97,10 +99,24 @@ export async function PUT(
             );
         }
 
+        const allowedRoles = ['USER', 'PARTNER', 'ADMIN', 'SUPER_ADMIN'];
+        const nextRole = typeof body.role === 'string' && allowedRoles.includes(body.role)
+            ? body.role
+            : undefined;
+        const nextPermissions = Array.isArray(body.adminPermissions)
+            ? body.adminPermissions.filter((perm: string) => ADMIN_PERMISSION_KEYS.includes(perm))
+            : undefined;
+
+        const adminPermissionsData =
+            typeof nextRole === 'string'
+                ? (nextRole === 'ADMIN' ? (nextPermissions || []) : [])
+                : nextPermissions;
+
         const user = await prisma.user.update({
             where: { id },
             data: {
-                role: body.role,
+                role: nextRole,
+                adminPermissions: adminPermissionsData,
             },
             select: {
                 id: true,
@@ -110,6 +126,7 @@ export async function PUT(
                 phone: true,
                 avatar: true,
                 role: true,
+                adminPermissions: true,
                 rewardPoints: true,
                 createdAt: true,
             },

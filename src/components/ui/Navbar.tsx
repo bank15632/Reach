@@ -7,17 +7,9 @@ import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { useCart } from "@/context/CartContext";
 import { useUser } from "@/context/UserContext";
-import {
-    products as racketProducts,
-    shoeProducts,
-    sportswearProducts,
-    bundleProducts,
-    supplementProducts
-} from "@/data/productData";
-import { articles } from "@/data/articleData";
-import { tournaments, statusConfig } from "@/data/tournamentData";
+import { ApiArticle, ApiBundle, ApiProduct, fetchArticles, fetchBundles, fetchProducts, getDisplayPrice } from "@/lib/apiClient";
 
-type SearchResultType = 'product' | 'article' | 'tournament';
+type SearchResultType = 'product' | 'article';
 
 interface SearchResult {
     id: string;
@@ -39,8 +31,7 @@ interface SearchResult {
 
 const typeLabels: Record<SearchResultType, { en: string; th: string }> = {
     product: { en: 'Product', th: 'สินค้า' },
-    article: { en: 'Article', th: 'บทความ' },
-    tournament: { en: 'Tournament', th: 'ทัวร์นาเมนต์' }
+    article: { en: 'Article', th: 'บทความ' }
 };
 
 const monthsEn = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -57,21 +48,6 @@ function formatSingleDateLabel(dateStr: string) {
     };
 }
 
-function formatDateRangeLabel(start: string, end: string) {
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-    const sameMonth = startDate.getMonth() === endDate.getMonth() && startDate.getFullYear() === endDate.getFullYear();
-
-    const en = sameMonth
-        ? `${monthsEn[startDate.getMonth()]} ${startDate.getDate()}-${endDate.getDate()}, ${startDate.getFullYear()}`
-        : `${monthsEn[startDate.getMonth()]} ${startDate.getDate()} - ${monthsEn[endDate.getMonth()]} ${endDate.getDate()}, ${endDate.getFullYear()}`;
-
-    const th = sameMonth
-        ? `${startDate.getDate()}-${endDate.getDate()} ${monthsTh[startDate.getMonth()]} ${startDate.getFullYear() + 543}`
-        : `${startDate.getDate()} ${monthsTh[startDate.getMonth()]} - ${endDate.getDate()} ${monthsTh[endDate.getMonth()]} ${endDate.getFullYear() + 543}`;
-
-    return { en, th };
-}
 
 export default function Navbar() {
     const router = useRouter();
@@ -86,134 +62,93 @@ export default function Navbar() {
 
     // Use availablePoints from UserContext
     const loyaltyPoints = availablePoints;
+    const [allResults, setAllResults] = useState<SearchResult[]>([]);
+    const [isSearchLoading, setIsSearchLoading] = useState(false);
 
-    const allResults = useMemo<SearchResult[]>(() => {
-        const result: SearchResult[] = [];
+    useEffect(() => {
+        let isMounted = true;
 
-        racketProducts.forEach(product => {
-            result.push({
-                id: product.id,
-                type: 'product',
-                title: product.name,
-                titleTh: product.nameTh,
-                primary: "Badminton Racket",
-                primaryTh: "ไม้แบดมินตัน",
-                secondary: product.badge ? `Tag: ${product.badge}` : undefined,
-                secondaryTh: product.badge ? `ป้าย: ${product.badge}` : undefined,
-                href: `/rackets/${product.id}`,
-                thumbnail: product.images[0] ?? product.colors[0]?.image ?? "/placeholder.png",
-                price: product.price,
-                badge: product.badge
-            });
-        });
+        async function loadSearchData() {
+            setIsSearchLoading(true);
+            try {
+                const [products, bundles, articles] = await Promise.all([
+                    fetchProducts({ limit: 200 }),
+                    fetchBundles({ limit: 200 }),
+                    fetchArticles({ limit: 200 }),
+                ]);
 
-        shoeProducts.forEach(product => {
-            result.push({
-                id: product.id,
-                type: 'product',
-                title: product.name,
-                titleTh: product.nameTh,
-                primary: "Shoes",
-                primaryTh: "รองเท้า",
-                secondary: product.badge ? `Tag: ${product.badge}` : undefined,
-                secondaryTh: product.badge ? `ป้าย: ${product.badge}` : undefined,
-                href: `/shoes/${product.id}`,
-                thumbnail: product.images[0] ?? product.colors[0]?.image ?? "/placeholder.png",
-                price: product.price,
-                badge: product.badge
-            });
-        });
+                if (!isMounted) return;
 
-        sportswearProducts.forEach(product => {
-            result.push({
-                id: product.id,
-                type: 'product',
-                title: product.name,
-                titleTh: product.nameTh,
-                primary: "Sportswear",
-                primaryTh: "ชุดกีฬา",
-                secondary: product.badge ? `Tag: ${product.badge}` : undefined,
-                secondaryTh: product.badge ? `ป้าย: ${product.badge}` : undefined,
-                href: `/sportswear/${product.id}`,
-                thumbnail: product.images[0] ?? product.colors[0]?.image ?? "/placeholder.png",
-                price: product.price,
-                badge: product.badge
-            });
-        });
+                const results: SearchResult[] = [];
+                const categoryMap: Record<string, { label: string; labelTh: string; hrefPrefix: string }> = {
+                    RACKETS: { label: "Badminton Racket", labelTh: "ไม้แบดมินตัน", hrefPrefix: "/rackets" },
+                    SHOES: { label: "Shoes", labelTh: "รองเท้า", hrefPrefix: "/shoes" },
+                    SPORTSWEAR: { label: "Sportswear", labelTh: "ชุดกีฬา", hrefPrefix: "/sportswear" },
+                    SUPPLEMENTS: { label: "Supplements", labelTh: "อาหารเสริม", hrefPrefix: "/supplements" },
+                    ACCESSORIES: { label: "Accessories", labelTh: "อุปกรณ์เสริม", hrefPrefix: "/shop" },
+                };
 
-        bundleProducts.forEach(product => {
-            result.push({
-                id: product.id,
-                type: 'product',
-                title: product.name,
-                titleTh: product.nameTh,
-                primary: "Bundle",
-                primaryTh: "เซ็ตสุดคุ้ม",
-                secondary: product.badge ? `Tag: ${product.badge}` : undefined,
-                secondaryTh: product.badge ? `ป้าย: ${product.badge}` : undefined,
-                href: `/bundles/${product.id}`,
-                thumbnail: product.images[0] ?? "/placeholder.png",
-                price: product.price,
-                badge: product.badge
-            });
-        });
+                products.forEach((product: ApiProduct) => {
+                    const mapped = categoryMap[product.category] ?? categoryMap.ACCESSORIES;
+                    const price = getDisplayPrice(product);
+                    results.push({
+                        id: product.id,
+                        type: "product",
+                        title: product.name,
+                        titleTh: product.nameTh,
+                        primary: mapped.label,
+                        primaryTh: mapped.labelTh,
+                        href: `${mapped.hrefPrefix}/${product.id}`,
+                        thumbnail: product.images?.[0] ?? "/placeholder.png",
+                        price: price.current,
+                    });
+                });
 
-        supplementProducts.forEach(product => {
-            result.push({
-                id: product.id,
-                type: 'product',
-                title: product.name,
-                titleTh: product.nameTh,
-                primary: "Supplements",
-                primaryTh: "อาหารเสริม",
-                secondary: product.badge ? `Tag: ${product.badge}` : undefined,
-                secondaryTh: product.badge ? `ป้าย: ${product.badge}` : undefined,
-                href: `/supplements/${product.id}`,
-                thumbnail: product.images[0] ?? "/placeholder.png",
-                price: product.price,
-                badge: product.badge
-            });
-        });
+                bundles.forEach((bundle: ApiBundle) => {
+                    results.push({
+                        id: bundle.id,
+                        type: "product",
+                        title: bundle.name,
+                        titleTh: bundle.nameTh,
+                        primary: "Bundle",
+                        primaryTh: "เซ็ตสุดคุ้ม",
+                        href: `/bundles/${bundle.id}`,
+                        thumbnail: bundle.images?.[0] ?? "/placeholder.png",
+                        price: bundle.price,
+                    });
+                });
 
-        articles.forEach(article => {
-            const dateLabel = formatSingleDateLabel(article.date);
-            result.push({
-                id: article.id,
-                type: 'article',
-                title: article.titleEn,
-                titleTh: article.title,
-                primary: article.category,
-                primaryTh: article.categoryTh,
-                secondary: article.excerptEn,
-                secondaryTh: article.excerpt,
-                href: `/articles/${article.id}`,
-                thumbnail: article.image ?? article.heroImage,
-                meta: dateLabel.en,
-                metaTh: dateLabel.th
-            });
-        });
+                articles.forEach((article: ApiArticle) => {
+                    const dateLabel = formatSingleDateLabel(article.date);
+                    results.push({
+                        id: article.id,
+                        type: "article",
+                        title: article.titleEn,
+                        titleTh: article.title,
+                        primary: article.category,
+                        primaryTh: article.categoryTh,
+                        secondary: article.excerptEn,
+                        secondaryTh: article.excerpt,
+                        href: `/articles/${article.id}`,
+                        thumbnail: article.image ?? article.heroImage,
+                        meta: dateLabel.en,
+                        metaTh: dateLabel.th,
+                    });
+                });
 
-        tournaments.forEach(tournament => {
-            const dateLabel = formatDateRangeLabel(tournament.dateStart, tournament.dateEnd);
-            const status = statusConfig[tournament.status];
-            result.push({
-                id: tournament.id,
-                type: 'tournament',
-                title: tournament.name,
-                titleTh: tournament.nameTh,
-                primary: dateLabel.en,
-                primaryTh: dateLabel.th,
-                secondary: `${tournament.location.city}, ${tournament.location.country}`,
-                secondaryTh: `${tournament.location.cityTh}, ${tournament.location.countryTh}`,
-                href: `/tournament/${tournament.id}`,
-                thumbnail: tournament.image,
-                meta: status.label,
-                metaTh: status.labelTh,
-                metaBadgeClasses: `${status.bgColor} ${status.textColor}`
-            });
-        });
+                setAllResults(results);
+            } finally {
+                if (isMounted) {
+                    setIsSearchLoading(false);
+                }
+            }
+        }
 
-        return result;
+        loadSearchData();
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const featuredResults = useMemo(() => allResults.slice(0, 8), [allResults]);
@@ -301,8 +236,8 @@ export default function Navbar() {
     ];
 
     const navLinks = [
-        { key: 'nav_tournament' as const, href: "/tournament" },
         { key: 'nav_articles' as const, href: "/articles" },
+        { key: 'nav_auctions' as const, href: "/auctions" },
         { key: 'nav_sale' as const, href: "/sale" },
     ];
 
@@ -673,7 +608,7 @@ export default function Navbar() {
                                         {language === 'th' ? 'ค้นหาอย่างรวดเร็ว' : 'Quick search'}
                                     </p>
                                     <h2 className="text-2xl font-bold text-gray-900">
-                                        {language === 'th' ? 'ค้นหาสินค้า บทความ หรือทัวร์นาเมนต์' : 'Search products, articles, tournaments'}
+                                        {language === 'th' ? 'ค้นหาสินค้าหรือบทความ' : 'Search products or articles'}
                                     </h2>
                                 </div>
                                 <button
@@ -693,7 +628,7 @@ export default function Navbar() {
                                     type="text"
                                     value={searchQuery}
                                     onChange={(event) => setSearchQuery(event.target.value)}
-                                    placeholder={language === 'th' ? 'พิมพ์ชื่อสินค้า บทความ หรือทัวร์นาเมนต์...' : 'Type a product, story, or tournament...'}
+                                    placeholder={language === 'th' ? 'พิมพ์ชื่อสินค้าหรือบทความ...' : 'Type a product or article name...'}
                                     className="flex-1 border-none bg-transparent text-base text-gray-900 placeholder:text-gray-400 focus:outline-none"
                                     aria-label={language === 'th' ? 'ค้นหาสินค้า' : 'Search products'}
                                 />
@@ -705,12 +640,79 @@ export default function Navbar() {
                                 </button>
                             </form>
 
-                            <div className="mt-6 rounded-2xl border border-gray-100 bg-white/70 p-6 text-center text-gray-500">
-                                <p className="text-sm">
-                                    {language === 'th'
-                                        ? 'ระบบค้นหาพร้อมแล้ว กรอกคำที่ต้องการแล้วกด "Go"'
-                                        : 'Search is ready—enter a keyword and hit "Go"'}
-                                </p>
+                            <div className="mt-6 space-y-3">
+                                {isSearchLoading && (
+                                    <div className="rounded-2xl border border-gray-100 bg-white/70 p-6 text-center text-gray-500">
+                                        <p className="text-sm">
+                                            {language === 'th' ? 'กำลังโหลดข้อมูลการค้นหา...' : 'Loading search data...'}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {!isSearchLoading && resultsToRender.length > 0 && (
+                                    <div className="max-h-[360px] overflow-y-auto rounded-2xl border border-gray-100 bg-white/70 p-3">
+                                        <div className="space-y-2">
+                                            {resultsToRender.map((result) => (
+                                                <button
+                                                    key={`${result.type}-${result.id}`}
+                                                    type="button"
+                                                    onClick={() => handleResultClick(result.href)}
+                                                    className="flex w-full items-center gap-4 rounded-xl border border-transparent p-3 text-left transition hover:border-gray-200 hover:bg-white"
+                                                >
+                                                    <div className="h-12 w-12 overflow-hidden rounded-lg bg-gray-100">
+                                                        <img
+                                                            src={result.thumbnail}
+                                                            alt={language === 'th' ? result.titleTh : result.title}
+                                                            className="h-full w-full object-cover"
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="truncate text-sm font-semibold text-gray-900">
+                                                                {language === 'th' ? result.titleTh : result.title}
+                                                            </p>
+                                                            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+                                                                {language === 'th' ? typeLabels[result.type].th : typeLabels[result.type].en}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-xs text-gray-500">
+                                                            {language === 'th' ? result.primaryTh : result.primary}
+                                                        </p>
+                                                        {(language === 'th' ? result.secondaryTh : result.secondary) && (
+                                                            <p className="text-xs text-gray-400 line-clamp-1">
+                                                                {language === 'th' ? result.secondaryTh : result.secondary}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    {result.price !== undefined && (
+                                                        <span className="text-sm font-semibold text-gray-900">
+                                                            ฿{result.price.toLocaleString()}
+                                                        </span>
+                                                    )}
+                                                    {(language === 'th' ? result.metaTh : result.meta) && (
+                                                        <span className="text-xs text-gray-400">
+                                                            {language === 'th' ? result.metaTh : result.meta}
+                                                        </span>
+                                                    )}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {!isSearchLoading && resultsToRender.length === 0 && (
+                                    <div className="rounded-2xl border border-gray-100 bg-white/70 p-6 text-center text-gray-500">
+                                        <p className="text-sm">
+                                            {hasQuery
+                                                ? language === 'th'
+                                                    ? 'ไม่พบผลลัพธ์ที่ตรงกับคำค้นหา'
+                                                    : 'No results found for your search'
+                                                : language === 'th'
+                                                    ? 'ระบบค้นหาพร้อมแล้ว กรอกคำที่ต้องการแล้วกด "Go"'
+                                                    : 'Search is ready—enter a keyword and hit "Go"'}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </motion.div>
                     </>

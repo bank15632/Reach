@@ -8,11 +8,14 @@ export function middleware(request: NextRequest) {
     if (pathname.startsWith('/admin')) {
         const token = request.cookies.get('auth_token')?.value;
 
+        if (pathname === '/admin/login') {
+            const targetUrl = new URL(token ? '/profile' : '/login', request.url);
+            return NextResponse.redirect(targetUrl);
+        }
+
         // No token - redirect to login
         if (!token) {
-            const loginUrl = new URL('/login', request.url);
-            loginUrl.searchParams.set('redirect', pathname);
-            return NextResponse.redirect(loginUrl);
+            return NextResponse.redirect(new URL('/login', request.url));
         }
 
         // Token exists - let the page handle role verification

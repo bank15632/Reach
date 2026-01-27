@@ -14,8 +14,8 @@ export const translations = {
         nav_bundles: 'BUNDLES',
         nav_supplements: 'SUPPLEMENTS',
         nav_courts: 'COURTS',
-        nav_tournament: 'TOURNAMENT',
         nav_articles: 'ARTICLES',
+        nav_auctions: 'AUCTIONS',
         nav_affiliate: 'AFFILIATE',
         nav_sale: 'SALE',
 
@@ -73,8 +73,8 @@ export const translations = {
         nav_bundles: 'เซ็ทสุดคุ้ม',
         nav_supplements: 'อาหารเสริม',
         nav_courts: 'สนามแบด',
-        nav_tournament: 'ทัวร์นาเมนต์',
         nav_articles: 'บทความ',
+        nav_auctions: 'ประมูล',
         nav_affiliate: 'พาร์ทเนอร์',
         nav_sale: 'สินค้าลดกระหน่ำ',
 

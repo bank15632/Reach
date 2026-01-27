@@ -112,6 +112,8 @@ interface UserProfile {
     avatar?: string;
     memberSince: string;
     memberTier: "Bronze" | "Silver" | "Gold" | "Platinum";
+    role?: string;
+    adminPermissions?: string[];
     shippingAddress?: ShippingAddress;
     partnerInfo?: PartnerInfo;
 }
@@ -228,6 +230,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
             avatar: apiUser.avatar || undefined,
             memberSince,
             memberTier: apiUser.memberTier || "Silver",
+            role: apiUser.role,
+            adminPermissions: Array.isArray(apiUser.adminPermissions) ? apiUser.adminPermissions : [],
             shippingAddress: apiUser.shippingAddress ? JSON.parse(apiUser.shippingAddress) : undefined,
             partnerInfo: apiUser.partnerInfo ? {
                 isPartner: true,

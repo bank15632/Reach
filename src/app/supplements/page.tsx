@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import Navbar from "@/components/ui/Navbar";
@@ -11,37 +11,34 @@ import ProductFilterBar, {
     useProductFilters
 } from "@/components/ui/ProductFilterBar";
 import { useLanguage } from "@/context/LanguageContext";
-import { supplementProducts, supplementCategoryNames, SupplementCategory } from "@/data/productData";
+import { ApiProduct, fetchProducts, getDisplayPrice } from "@/lib/apiClient";
 
 export default function SupplementsPage() {
     const { language } = useLanguage();
-    const [selectedColors, setSelectedColors] = useState<{ [key: string]: number }>({});
+    const [products, setProducts] = useState<ApiProduct[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const { activeFilters, sortBy, toggleFilter, setSortBy, clearAllFilters } = useProductFilters();
 
-    // Category options from supplementCategoryNames
-    const categoryOptions = useMemo(() => {
-        return (Object.keys(supplementCategoryNames) as SupplementCategory[]).map(key => ({
-            value: key,
-            label: supplementCategoryNames[key].en,
-            labelTh: supplementCategoryNames[key].th
-        }));
-    }, []);
+    useEffect(() => {
+        let isMounted = true;
 
-    // Flavor options (text-based)
-    const flavorOptions = useMemo(() => {
-        const flavorMap = new Map<string, { label: string; labelTh: string }>();
-        supplementProducts.forEach(product => {
-            product.colors.forEach(color => {
-                if (!flavorMap.has(color.name)) {
-                    flavorMap.set(color.name, { label: color.name, labelTh: color.nameTh });
+        async function loadProducts() {
+            try {
+                const data = await fetchProducts({ category: "SUPPLEMENTS", limit: 200 });
+                if (!isMounted) return;
+                setProducts(data);
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false);
                 }
-            });
-        });
-        return Array.from(flavorMap.entries()).map(([value, labels]) => ({
-            value,
-            label: labels.label,
-            labelTh: labels.labelTh,
-        }));
+            }
+        }
+
+        loadProducts();
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     // Price range options
@@ -55,18 +52,6 @@ export default function SupplementsPage() {
     // Filter configurations for supplements
     const filters: FilterConfig[] = [
         {
-            key: 'category',
-            label: 'Category',
-            labelTh: 'หมวดหมู่',
-            options: categoryOptions
-        },
-        {
-            key: 'flavor',
-            label: 'Flavor',
-            labelTh: 'รสชาติ',
-            options: flavorOptions
-        },
-        {
             key: 'price',
             label: 'Price',
             labelTh: 'ราคา',
@@ -74,21 +59,23 @@ export default function SupplementsPage() {
         },
     ];
 
+    const displayProducts = useMemo(() => {
+        return products.map((product) => {
+            const price = getDisplayPrice(product);
+            return {
+                id: product.id,
+                name: product.name,
+                nameTh: product.nameTh,
+                price: price.current,
+                originalPrice: price.original,
+                images: product.images ?? [],
+            };
+        });
+    }, [products]);
+
     // Filter and sort products
     const filteredProducts = useMemo(() => {
-        let result = [...supplementProducts];
-
-        // Apply category filter
-        if (activeFilters.category?.length > 0) {
-            result = result.filter(p => activeFilters.category.includes(p.category));
-        }
-
-        // Apply flavor filter
-        if (activeFilters.flavor?.length > 0) {
-            result = result.filter(p =>
-                p.colors.some(c => activeFilters.flavor.includes(c.name))
-            );
-        }
+        let result = [...displayProducts];
 
         // Apply price filter
         if (activeFilters.price?.length > 0) {
@@ -108,7 +95,7 @@ export default function SupplementsPage() {
         // Apply sorting
         switch (sortBy) {
             case 'newest':
-                result = result.filter(p => p.badge === 'NEW').concat(result.filter(p => p.badge !== 'NEW'));
+                result = result.slice().reverse();
                 break;
             case 'price-low':
                 result.sort((a, b) => a.price - b.price);
@@ -117,14 +104,11 @@ export default function SupplementsPage() {
                 result.sort((a, b) => b.price - a.price);
                 break;
             case 'bestseller':
-                result = result.filter(p => p.badge === 'BEST SELLER').concat(result.filter(p => p.badge !== 'BEST SELLER'));
                 break;
         }
 
         return result;
-    }, [activeFilters, sortBy]);
-
-    const getSelectedColorIndex = (productId: string) => selectedColors[productId] || 0;
+    }, [activeFilters, displayProducts, sortBy]);
 
     return (
         <main className="bg-white min-h-screen">
@@ -156,7 +140,11 @@ export default function SupplementsPage() {
 
             <section className="py-8">
                 <div className="max-w-7xl mx-auto px-6">
-                    {filteredProducts.length === 0 ? (
+                    {isLoading ? (
+                        <div className="text-center py-16 text-gray-500">
+                            {language === 'th' ? 'กำลังโหลดสินค้า...' : 'Loading products...'}
+                        </div>
+                    ) : filteredProducts.length === 0 ? (
                         <div className="text-center py-16">
                             <p className="text-gray-500 text-lg">
                                 {language === 'th' ? 'ไม่พบสินค้าที่ตรงกับตัวกรอง' : 'No products match your filters'}
@@ -171,8 +159,7 @@ export default function SupplementsPage() {
                     ) : (
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
                             {filteredProducts.map((product, index) => {
-                                const selectedIndex = getSelectedColorIndex(product.id);
-                                const selectedColor = product.colors[selectedIndex];
+                                const displayImage = product.images[0] ?? "/placeholder.png";
 
                                 return (
                                     <motion.div
@@ -183,46 +170,20 @@ export default function SupplementsPage() {
                                         className="group"
                                     >
                                         <Link href={`/supplements/${product.id}`} className="block relative">
-                                            {product.badge && (
-                                                <div className="absolute top-3 left-3 z-10 bg-black text-white px-2 py-1 text-xs font-bold">
-                                                    {product.badge}
-                                                </div>
-                                            )}
                                             <div className="relative aspect-square overflow-hidden bg-gray-100">
                                                 <div
                                                     className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
-                                                    style={{ backgroundImage: `url('${selectedColor?.image || product.images[0]}')` }}
+                                                    style={{ backgroundImage: `url('${displayImage}')` }}
                                                 />
                                             </div>
                                         </Link>
-
-                                        <div className="flex flex-wrap gap-2 mt-3 mb-3">
-                                            {product.colors.map((color, colorIndex) => (
-                                                <button
-                                                    key={colorIndex}
-                                                    onClick={() => setSelectedColors(prev => ({ ...prev, [product.id]: colorIndex }))}
-                                                    className={`px-2.5 py-1 text-xs font-medium rounded-full border transition-all ${colorIndex === selectedIndex
-                                                        ? 'border-black bg-black text-white'
-                                                        : 'border-gray-300 text-gray-700 hover:border-gray-500'
-                                                        }`}
-                                                >
-                                                    {language === 'th' ? color.nameTh : color.name}
-                                                </button>
-                                            ))}
-                                        </div>
 
                                         <Link href={`/supplements/${product.id}`}>
                                             <h3 className="text-sm font-semibold text-black mb-0.5 group-hover:underline">
                                                 {language === 'th' ? product.nameTh : product.name}
                                             </h3>
                                         </Link>
-                                        <p className="text-xs text-gray-500 mb-2">
-                                            {language === 'th' 
-                                                ? supplementCategoryNames[product.category].th 
-                                                : supplementCategoryNames[product.category].en}
-                                        </p>
-                                        <div className="border-t border-gray-200 pt-2 flex items-center justify-between">
-                                            <span className="text-xs text-gray-600">{language === 'th' ? selectedColor?.nameTh : selectedColor?.name}</span>
+                                        <div className="border-t border-gray-200 pt-2 flex items-center justify-end">
                                             <div className="flex items-center gap-2">
                                                 {product.originalPrice && (
                                                     <span className="text-xs text-gray-400 line-through">฿{product.originalPrice.toLocaleString()}</span>

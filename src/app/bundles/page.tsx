@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import Navbar from "@/components/ui/Navbar";
@@ -11,19 +11,35 @@ import ProductFilterBar, {
     useProductFilters
 } from "@/components/ui/ProductFilterBar";
 import { useLanguage } from "@/context/LanguageContext";
-import { bundleProducts } from "@/data/productData";
+import { ApiBundle, fetchBundles } from "@/lib/apiClient";
 
 export default function BundlesPage() {
     const { language } = useLanguage();
+    const [bundles, setBundles] = useState<ApiBundle[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const { activeFilters, sortBy, toggleFilter, setSortBy, clearAllFilters } = useProductFilters();
 
-    // Category options
-    const categoryOptions = [
-        { value: 'beginner', label: 'Beginner Sets', labelTh: 'เซ็ตสำหรับมือใหม่' },
-        { value: 'intermediate', label: 'Intermediate Sets', labelTh: 'เซ็ตสำหรับระดับกลาง' },
-        { value: 'advanced', label: 'Advanced Sets', labelTh: 'เซ็ตสำหรับขั้นสูง' },
-        { value: 'professional', label: 'Professional Sets', labelTh: 'เซ็ตสำหรับมืออาชีพ' },
-    ];
+    useEffect(() => {
+        let isMounted = true;
+
+        async function loadBundles() {
+            try {
+                const data = await fetchBundles({ limit: 200 });
+                if (!isMounted) return;
+                setBundles(data);
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false);
+                }
+            }
+        }
+
+        loadBundles();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     // Price range options
     const priceOptions = [
@@ -35,12 +51,6 @@ export default function BundlesPage() {
     // Filter configurations
     const filters: FilterConfig[] = [
         {
-            key: 'category',
-            label: 'Skill Level',
-            labelTh: 'ระดับทักษะ',
-            options: categoryOptions
-        },
-        {
             key: 'price',
             label: 'Price',
             labelTh: 'ราคา',
@@ -50,12 +60,7 @@ export default function BundlesPage() {
 
     // Filter and sort bundles
     const filteredBundles = useMemo(() => {
-        let result = [...bundleProducts];
-
-        // Apply category filter
-        if (activeFilters.category?.length > 0) {
-            result = result.filter(b => activeFilters.category.includes(b.skillLevel));
-        }
+        let result = [...bundles];
 
         // Apply price filter
         if (activeFilters.price?.length > 0) {
@@ -82,14 +87,7 @@ export default function BundlesPage() {
         }
 
         return result;
-    }, [activeFilters, sortBy]);
-
-    const skillLevelLabels: Record<string, { en: string; th: string }> = {
-        beginner: { en: 'Beginner', th: 'เริ่มต้น' },
-        intermediate: { en: 'Intermediate', th: 'ปานกลาง' },
-        advanced: { en: 'Advanced', th: 'ขั้นสูง' },
-        professional: { en: 'Professional', th: 'มืออาชีพ' },
-    };
+    }, [activeFilters, bundles, sortBy]);
 
     return (
         <main className="bg-white min-h-screen">
@@ -121,7 +119,11 @@ export default function BundlesPage() {
 
             <section className="py-8">
                 <div className="max-w-7xl mx-auto px-6">
-                    {filteredBundles.length === 0 ? (
+                    {isLoading ? (
+                        <div className="text-center py-16 text-gray-500">
+                            {language === 'th' ? 'กำลังโหลดเซ็ต...' : 'Loading bundles...'}
+                        </div>
+                    ) : filteredBundles.length === 0 ? (
                         <div className="text-center py-16">
                             <p className="text-gray-500 text-lg">
                                 {language === 'th' ? 'ไม่พบเซ็ตที่ตรงกับตัวกรอง' : 'No bundles match your filters'}
@@ -145,56 +147,43 @@ export default function BundlesPage() {
                                 >
                                     {/* Image */}
                                     <Link href={`/bundles/${bundle.id}`} className="relative h-64 md:h-80 overflow-hidden rounded-lg block">
-                                        {bundle.badge && (
-                                            <div className="absolute top-4 left-4 z-10 bg-brand-yellow text-black px-3 py-1 font-bold text-sm rounded">
-                                                {bundle.badge}
+                                        {bundle.originalPrice > bundle.price && (
+                                            <div className="absolute top-4 right-4 z-10 bg-lime-400 text-black px-4 py-2 font-bold rounded">
+                                                {language === 'th'
+                                                    ? `ประหยัด ${Math.round(((bundle.originalPrice - bundle.price) / bundle.originalPrice) * 100)}%`
+                                                    : `SAVE ${Math.round(((bundle.originalPrice - bundle.price) / bundle.originalPrice) * 100)}%`}
                                             </div>
                                         )}
-                                        <div className="absolute top-4 right-4 z-10 bg-lime-400 text-black px-4 py-2 font-bold rounded">
-                                            {language === 'th' ? `ประหยัด ${bundle.savingsPercent}%` : `SAVE ${bundle.savingsPercent}%`}
-                                        </div>
                                         <div
                                             className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
-                                            style={{ backgroundImage: `url('${bundle.images[0]}')` }}
+                                            style={{ backgroundImage: `url('${bundle.images?.[0] || "/placeholder.png"}')` }}
                                         />
                                     </Link>
 
                                     {/* Content */}
                                     <div className="flex flex-col justify-center">
-                                        <div className="inline-block px-3 py-1 bg-gray-200 text-gray-700 text-xs font-medium rounded-full mb-3 w-fit">
-                                            {language === 'th'
-                                                ? skillLevelLabels[bundle.skillLevel].th
-                                                : skillLevelLabels[bundle.skillLevel].en}
-                                        </div>
-
                                         <Link href={`/bundles/${bundle.id}`}>
                                             <h2 className="text-2xl font-bold text-black mb-2 hover:text-brand-yellow transition-colors">
                                                 {language === 'th' ? bundle.nameTh : bundle.name}
                                             </h2>
                                         </Link>
                                         <p className="text-gray-500 mb-4">
-                                            {bundle.items.length} {language === 'th' ? 'รายการ' : 'items included'}
+                                            {bundle.items?.length ?? 0} {language === 'th' ? 'รายการ' : 'items included'}
                                         </p>
-
-                                        {/* Items */}
-                                        <ul className="space-y-2 mb-6">
-                                            {bundle.items.map((item, i) => (
-                                                <li key={i} className="text-sm text-gray-600 flex items-center gap-2">
-                                                    <span className="w-1.5 h-1.5 bg-brand-yellow rounded-full" />
-                                                    {language === 'th' ? item.nameTh : item.name} (฿{item.price.toLocaleString()})
-                                                </li>
-                                            ))}
-                                        </ul>
 
                                         {/* Price */}
                                         <div className="flex items-center gap-4 mb-6">
                                             <span className="text-3xl font-bold text-black">฿{bundle.price.toLocaleString()}</span>
-                                            <span className="text-lg text-gray-400 line-through">฿{bundle.originalPrice.toLocaleString()}</span>
-                                            <span className="text-sm text-green-600 font-semibold">
-                                                {language === 'th'
-                                                    ? `ประหยัด ฿${(bundle.originalPrice - bundle.price).toLocaleString()}`
-                                                    : `Save ฿${(bundle.originalPrice - bundle.price).toLocaleString()}`}
-                                            </span>
+                                            {bundle.originalPrice > bundle.price && (
+                                                <>
+                                                    <span className="text-lg text-gray-400 line-through">฿{bundle.originalPrice.toLocaleString()}</span>
+                                                    <span className="text-sm text-green-600 font-semibold">
+                                                        {language === 'th'
+                                                            ? `ประหยัด ฿${(bundle.originalPrice - bundle.price).toLocaleString()}`
+                                                            : `Save ฿${(bundle.originalPrice - bundle.price).toLocaleString()}`}
+                                                    </span>
+                                                </>
+                                            )}
                                         </div>
 
                                         {/* CTA */}

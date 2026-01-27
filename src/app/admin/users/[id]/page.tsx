@@ -11,6 +11,10 @@ import {
     Award,
     User,
 } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
+import AdminGuard from '@/components/admin/AdminGuard';
+import { useUser } from '@/context/UserContext';
+import { ADMIN_PERMISSIONS } from '@/lib/adminAccess';
 
 interface Order {
     id: string;
@@ -37,6 +41,7 @@ interface UserData {
     phone: string | null;
     avatar: string | null;
     role: string;
+    adminPermissions: string[];
     rewardPoints: number;
     createdAt: string;
     orders: Order[];
@@ -47,10 +52,20 @@ interface UserData {
 }
 
 const ROLE_OPTIONS = [
-    { value: 'USER', label: 'ผู้ใช้' },
-    { value: 'PARTNER', label: 'พาร์ทเนอร์' },
-    { value: 'ADMIN', label: 'แอดมิน' },
+    { value: 'USER', labelEn: 'User', labelTh: 'ผู้ใช้' },
+    { value: 'PARTNER', labelEn: 'Partner', labelTh: 'พาร์ทเนอร์' },
+    { value: 'ADMIN', labelEn: 'Admin', labelTh: 'แอดมิน' },
+    { value: 'SUPER_ADMIN', labelEn: 'Super Admin', labelTh: 'แอดมินสูงสุด' },
 ];
+
+const ORDER_STATUS_LABELS: Record<string, { en: string; th: string }> = {
+    PENDING: { en: 'Pending', th: 'รอดำเนินการ' },
+    CONFIRMED: { en: 'Confirmed', th: 'ยืนยันแล้ว' },
+    PROCESSING: { en: 'Processing', th: 'กำลังจัดเตรียม' },
+    SHIPPED: { en: 'Shipped', th: 'จัดส่งแล้ว' },
+    DELIVERED: { en: 'Delivered', th: 'ส่งถึงแล้ว' },
+    CANCELLED: { en: 'Cancelled', th: 'ยกเลิก' },
+};
 
 const STATUS_COLORS: Record<string, string> = {
     PENDING: 'bg-yellow-100 text-yellow-700',
@@ -67,11 +82,15 @@ export default function UserDetailPage({
     params: Promise<{ id: string }>;
 }) {
     const { id } = use(params);
+    const { language } = useLanguage();
+    const t = (en: string, th: string) => (language === 'th' ? th : en);
+    const { userProfile } = useUser();
     const [user, setUser] = useState<UserData | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [newRole, setNewRole] = useState('');
+    const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
 
     useEffect(() => {
         async function fetchUser() {
@@ -85,8 +104,9 @@ export default function UserDetailPage({
 
                 setUser(data.user);
                 setNewRole(data.user.role);
+                setSelectedPermissions(data.user.adminPermissions || []);
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
+                setError(err instanceof Error ? err.message : t('Something went wrong.', 'เกิดข้อผิดพลาด'));
             } finally {
                 setLoading(false);
             }
@@ -96,7 +116,7 @@ export default function UserDetailPage({
     }, [id]);
 
     const handleUpdateRole = async () => {
-        if (!user || newRole === user.role) return;
+        if (!user) return;
 
         setSaving(true);
         setError(null);
@@ -105,29 +125,29 @@ export default function UserDetailPage({
             const res = await fetch(`/api/admin/users/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ role: newRole }),
+                body: JSON.stringify({ role: newRole, adminPermissions: selectedPermissions }),
             });
 
             const data = await res.json();
 
             if (!res.ok) {
-                throw new Error(data.error || 'เกิดข้อผิดพลาด');
+                throw new Error(data.error || t('Something went wrong.', 'เกิดข้อผิดพลาด'));
             }
 
-            setUser((prev) => prev ? { ...prev, role: newRole } : null);
+            setUser((prev) => prev ? { ...prev, role: newRole, adminPermissions: selectedPermissions } : null);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
+            setError(err instanceof Error ? err.message : t('Something went wrong.', 'เกิดข้อผิดพลาด'));
         } finally {
             setSaving(false);
         }
     };
 
     const formatPrice = (price: number) => {
-        return new Intl.NumberFormat('th-TH').format(price);
+        return new Intl.NumberFormat(language === 'th' ? 'th-TH' : 'en-US').format(price);
     };
 
     const formatDate = (date: string) => {
-        return new Intl.DateTimeFormat('th-TH', {
+        return new Intl.DateTimeFormat(language === 'th' ? 'th-TH' : 'en-US', {
             year: 'numeric',
             month: 'long',
             day: 'numeric',
@@ -139,7 +159,7 @@ export default function UserDetailPage({
             <div className="flex items-center justify-center min-h-[400px]">
                 <div className="text-center">
                     <div className="animate-spin w-8 h-8 border-2 border-brand-yellow border-t-transparent rounded-full mx-auto" />
-                    <p className="mt-2 text-gray-500">กำลังโหลด...</p>
+                    <p className="mt-2 text-gray-500">{t('Loading...', 'กำลังโหลด...')}</p>
                 </div>
             </div>
         );
@@ -148,15 +168,22 @@ export default function UserDetailPage({
     if (!user) {
         return (
             <div className="text-center py-12">
-                <p className="text-gray-500">ไม่พบผู้ใช้</p>
+                <p className="text-gray-500">{t('User not found.', 'ไม่พบผู้ใช้')}</p>
                 <Link href="/admin/users" className="text-brand-yellow hover:underline mt-2 inline-block">
-                    กลับไปหน้ารายการ
+                    {t('Back to users', 'กลับไปหน้ารายการ')}
                 </Link>
             </div>
         );
     }
 
+    const roleChanged = newRole !== user.role;
+    const currentPermissions = (user.adminPermissions || []).slice().sort().join('|');
+    const nextPermissions = selectedPermissions.slice().sort().join('|');
+    const permissionsChanged = newRole === 'ADMIN' && currentPermissions !== nextPermissions;
+    const hasChanges = roleChanged || permissionsChanged;
+
     return (
+        <AdminGuard permission="MANAGE_USERS">
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center gap-4">
@@ -191,7 +218,7 @@ export default function UserDetailPage({
                     {/* User Info */}
                     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                         <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                            ข้อมูลผู้ใช้
+                            {t('User information', 'ข้อมูลผู้ใช้')}
                         </h2>
                         <div className="flex items-center gap-6 mb-6">
                             <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-100">
@@ -214,7 +241,7 @@ export default function UserDetailPage({
                                 </p>
                                 <p className="text-gray-500">{user.email}</p>
                                 <p className="text-sm text-gray-400">
-                                    สมาชิกตั้งแต่ {formatDate(user.createdAt)}
+                            {t('Member since', 'สมาชิกตั้งแต่')} {formatDate(user.createdAt)}
                                 </p>
                             </div>
                         </div>
@@ -223,7 +250,7 @@ export default function UserDetailPage({
                             <div className="p-4 bg-gray-50 rounded-lg">
                                 <div className="flex items-center gap-2 text-gray-500 mb-1">
                                     <ShoppingCart className="w-4 h-4" />
-                                    <span className="text-sm">คำสั่งซื้อทั้งหมด</span>
+                                    <span className="text-sm">{t('Total orders', 'คำสั่งซื้อทั้งหมด')}</span>
                                 </div>
                                 <p className="text-2xl font-semibold text-gray-900">
                                     {user._count.orders}
@@ -232,7 +259,7 @@ export default function UserDetailPage({
                             <div className="p-4 bg-gray-50 rounded-lg">
                                 <div className="flex items-center gap-2 text-gray-500 mb-1">
                                     <Award className="w-4 h-4" />
-                                    <span className="text-sm">แต้มสะสม</span>
+                                    <span className="text-sm">{t('Reward points', 'แต้มสะสม')}</span>
                                 </div>
                                 <p className="text-2xl font-semibold text-gray-900">
                                     {formatPrice(user.rewardPoints)}
@@ -244,10 +271,10 @@ export default function UserDetailPage({
                     {/* Recent Orders */}
                     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                         <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                            คำสั่งซื้อล่าสุด
+                            {t('Recent orders', 'คำสั่งซื้อล่าสุด')}
                         </h2>
                         {user.orders.length === 0 ? (
-                            <p className="text-gray-500 text-center py-8">ยังไม่มีคำสั่งซื้อ</p>
+                            <p className="text-gray-500 text-center py-8">{t('No orders yet.', 'ยังไม่มีคำสั่งซื้อ')}</p>
                         ) : (
                             <div className="space-y-3">
                                 {user.orders.map((order) => (
@@ -273,7 +300,9 @@ export default function UserDetailPage({
                                                     STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-700'
                                                 }`}
                                             >
-                                                {order.status}
+                                                {ORDER_STATUS_LABELS[order.status]
+                                                    ? t(ORDER_STATUS_LABELS[order.status].en, ORDER_STATUS_LABELS[order.status].th)
+                                                    : order.status}
                                             </span>
                                         </div>
                                     </Link>
@@ -286,29 +315,29 @@ export default function UserDetailPage({
                     {user.partnerInfo && (
                         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                             <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                                ข้อมูลพาร์ทเนอร์
+                                {t('Partner information', 'ข้อมูลพาร์ทเนอร์')}
                             </h2>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <div className="p-4 bg-blue-50 rounded-lg">
-                                    <p className="text-sm text-blue-600 mb-1">รหัสพาร์ทเนอร์</p>
+                                    <p className="text-sm text-blue-600 mb-1">{t('Affiliate code', 'รหัสพาร์ทเนอร์')}</p>
                                     <p className="font-mono font-semibold text-blue-900">
                                         {user.partnerInfo.affiliateCode}
                                     </p>
                                 </div>
                                 <div className="p-4 bg-green-50 rounded-lg">
-                                    <p className="text-sm text-green-600 mb-1">ค่าคอมมิชชั่น</p>
+                                    <p className="text-sm text-green-600 mb-1">{t('Commission', 'ค่าคอมมิชชั่น')}</p>
                                     <p className="font-semibold text-green-900">
                                         ฿{formatPrice(user.partnerInfo.totalCommission)}
                                     </p>
                                 </div>
                                 <div className="p-4 bg-purple-50 rounded-lg">
-                                    <p className="text-sm text-purple-600 mb-1">ยอดขายทั้งหมด</p>
+                                    <p className="text-sm text-purple-600 mb-1">{t('Total sales', 'ยอดขายทั้งหมด')}</p>
                                     <p className="font-semibold text-purple-900">
                                         ฿{formatPrice(user.partnerInfo.totalSales)}
                                     </p>
                                 </div>
                                 <div className="p-4 bg-orange-50 rounded-lg">
-                                    <p className="text-sm text-orange-600 mb-1">จำนวน Orders</p>
+                                    <p className="text-sm text-orange-600 mb-1">{t('Total orders', 'จำนวน Orders')}</p>
                                     <p className="font-semibold text-orange-900">
                                         {user.partnerInfo.totalOrders}
                                     </p>
@@ -323,59 +352,98 @@ export default function UserDetailPage({
                     {/* Change Role */}
                     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                         <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                            เปลี่ยน Role
+                            {t('Change role', 'เปลี่ยน Role')}
                         </h2>
 
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Role
-                                </label>
-                                <select
-                                    value={newRole}
-                                    onChange={(e) => setNewRole(e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-yellow/50"
-                                >
-                                    {ROLE_OPTIONS.map((opt) => (
-                                        <option key={opt.value} value={opt.value}>
-                                            {opt.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                        {userProfile?.role === 'SUPER_ADMIN' ? (
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        {t('Role', 'Role')}
+                                    </label>
+                                    <select
+                                        value={newRole}
+                                        onChange={(e) => setNewRole(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-yellow/50"
+                                    >
+                                        {ROLE_OPTIONS.map((opt) => (
+                                            <option key={opt.value} value={opt.value}>
+                                                {language === 'th' ? opt.labelTh : opt.labelEn}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
 
-                            <button
-                                onClick={handleUpdateRole}
-                                disabled={saving || newRole === user.role}
-                                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-brand-yellow text-black rounded-lg font-medium hover:bg-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {saving ? (
-                                    <>
-                                        <Loader2 className="w-5 h-5 animate-spin" />
-                                        กำลังบันทึก...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Save className="w-5 h-5" />
-                                        บันทึก
-                                    </>
+                                {newRole === 'ADMIN' && (
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-700 mb-2">
+                                            {t('Admin permissions', 'สิทธิ์แอดมิน')}
+                                        </p>
+                                        <div className="space-y-2">
+                                            {ADMIN_PERMISSIONS.map((permission) => (
+                                                <label key={permission.key} className="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedPermissions.includes(permission.key)}
+                                                        onChange={(e) => {
+                                                            setSelectedPermissions((prev) =>
+                                                                e.target.checked
+                                                                    ? [...prev, permission.key]
+                                                                    : prev.filter((item) => item !== permission.key)
+                                                            );
+                                                        }}
+                                                        className="w-4 h-4 rounded border-gray-300 text-brand-yellow focus:ring-brand-yellow"
+                                                    />
+                                                    <span>{language === 'th' ? permission.labelTh : permission.label}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
                                 )}
-                            </button>
-                        </div>
+
+                                {newRole === 'SUPER_ADMIN' && (
+                                    <p className="text-xs text-gray-500">
+                                        {t('Super admins have full access.', 'แอดมินสูงสุดเข้าถึงได้ทุกหน้า')}
+                                    </p>
+                                )}
+
+                                <button
+                                    onClick={handleUpdateRole}
+                                    disabled={saving || !hasChanges}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-brand-yellow text-black rounded-lg font-medium hover:bg-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {saving ? (
+                                        <>
+                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                            {t('Saving...', 'กำลังบันทึก...')}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save className="w-5 h-5" />
+                                            {t('Save', 'บันทึก')}
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-gray-500">
+                                {t('Only a super admin can change roles.', 'เฉพาะแอดมินสูงสุดเท่านั้นที่แก้ไขสิทธิ์ได้')}
+                            </p>
+                        )}
                     </div>
 
                     {/* Contact Info */}
                     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                         <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                            ข้อมูลติดต่อ
+                            {t('Contact information', 'ข้อมูลติดต่อ')}
                         </h2>
                         <div className="space-y-3">
                             <div>
-                                <p className="text-sm text-gray-500">อีเมล</p>
+                                <p className="text-sm text-gray-500">{t('Email', 'อีเมล')}</p>
                                 <p className="font-medium">{user.email}</p>
                             </div>
                             <div>
-                                <p className="text-sm text-gray-500">เบอร์โทร</p>
+                                <p className="text-sm text-gray-500">{t('Phone', 'เบอร์โทร')}</p>
                                 <p className="font-medium">{user.phone || '-'}</p>
                             </div>
                         </div>
@@ -383,5 +451,6 @@ export default function UserDetailPage({
                 </div>
             </div>
         </div>
+        </AdminGuard>
     );
 }

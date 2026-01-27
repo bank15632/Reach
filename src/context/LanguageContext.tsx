@@ -17,7 +17,7 @@ interface LanguageProviderProps {
 }
 
 export function LanguageProvider({ children }: LanguageProviderProps) {
-    const [language, setLanguageState] = useState<Language>('th');
+    const [language, setLanguageState] = useState<Language>('en');
 
     // Load language from localStorage on mount
     useEffect(() => {

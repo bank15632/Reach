@@ -21,6 +21,7 @@ model User {
   phone         String?
   avatar        String?
   role          Role      @default(USER)
+  adminPermissions AdminPermission[] @default([])
   emailVerified Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -31,6 +32,12 @@ model User {
   partnerInfo   Partner?
   rewardPoints  Int       @default(0)
   sessions      Session[]
+  
+  // Auction relations
+  wonAuctions   Auction[] @relation("AuctionWinner")
+  bids          Bid[]
+  blacklist     BidderBlacklist?
+  payments      Payment[]
 
   @@map("users")
 }
@@ -51,6 +58,17 @@ enum Role {
   USER
   PARTNER
   ADMIN
+  SUPER_ADMIN
+}
+
+enum AdminPermission {
+  VIEW_DASHBOARD
+  MANAGE_PRODUCTS
+  MANAGE_ORDERS
+  MANAGE_USERS
+  MANAGE_PARTNERS
+  MANAGE_ARTICLES
+  MANAGE_AUCTIONS
 }
 
 model Address {
@@ -59,11 +77,18 @@ model Address {
   label       String  // e.g., "Home", "Work"
   fullName    String
   phone       String
-  address     String
-  subDistrict String
-  district    String
-  province    String
+  address     String  // Street address line 1
+  address2    String? // Street address line 2 (optional)
+  city        String  // City or district
+  state       String? // State/Province/Region (optional for some countries)
   postalCode  String
+  country     String  @default("TH") // ISO country code
+  
+  // Legacy Thai address fields (for backward compatibility)
+  subDistrict String?
+  district    String?
+  province    String?
+  
   isDefault   Boolean @default(false)
 
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -89,6 +114,7 @@ model Product {
   inStock     Boolean  @default(true)
   stockCount  Int      @default(0)
   featured    Boolean  @default(false)
+  weight      Float?   // Weight in kg for shipping calculation
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -96,6 +122,7 @@ model Product {
   variants    ProductVariant[]
   orderItems  OrderItem[]
   bundleItems BundleItem[]
+  auctions    Auction[]
 
   @@map("products")
 }
@@ -336,88 +363,168 @@ enum WithdrawalStatus {
   REJECTED
 }
 
-// ==================== TOURNAMENTS ====================
+// ==================== AUCTIONS ====================
 
-model Tournament {
+model Auction {
+  id              String        @id @default(cuid())
+  productId       String?       // Optional: link to existing product
+  title           String
+  titleTh         String
+  description     String?
+  descriptionTh   String?
+  images          String[]      @default([])
+  startPrice      Float         // Starting bid price in THB
+  reservePrice    Float?        // Minimum price to sell (optional)
+  currentPrice    Float         // Current highest bid
+  bidIncrement    Float         @default(100) // Minimum bid increment
+  startTime       DateTime
+  endTime         DateTime
+  status          AuctionStatus @default(SCHEDULED)
+  
+  // Winner info (set when auction ends)
+  winnerId        String?
+  winningBid      Float?
+  
+  // Payment tracking
+  paymentDeadline DateTime?     // Deadline for winner to pay
+  paymentStatus   AuctionPaymentStatus @default(PENDING)
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  product         Product?      @relation(fields: [productId], references: [id])
+  winner          User?         @relation("AuctionWinner", fields: [winnerId], references: [id])
+  bids            Bid[]
+  
+  @@map("auctions")
+}
+
+model Bid {
+  id         String   @id @default(cuid())
+  auctionId  String
+  userId     String
+  amount     Float
+  isWinning  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  
+  auction    Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("bids")
+}
+
+model BidderBlacklist {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  reason    String
+  unpaidAuctions Int @default(1)
+  createdAt DateTime @default(now())
+  expiresAt DateTime? // Optional: temporary blacklist
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("bidder_blacklist")
+}
+
+enum AuctionStatus {
+  SCHEDULED   // Not started yet
+  ACTIVE      // Currently accepting bids
+  ENDED       // Bidding ended, awaiting payment
+  COMPLETED   // Paid and fulfilled
+  CANCELLED   // Cancelled by admin
+  NO_BIDS     // Ended with no bids
+  UNPAID      // Winner didn't pay
+}
+
+enum AuctionPaymentStatus {
+  PENDING     // Awaiting payment
+  PAID        // Payment received
+  FAILED      // Payment failed/declined
+  REFUNDED    // Payment refunded
+}
+
+// ==================== SHIPPING ====================
+
+model ShippingZone {
   id          String   @id @default(cuid())
-  name        String
-  nameTh      String
-  description String?
-  location    String
-  startDate   DateTime
-  endDate     DateTime
-  status      TournamentStatus @default(UPCOMING)
-  bannerImage String?
+  name        String   // e.g., "Asia Pacific", "Europe", "North America"
+  countries   String[] // ISO country codes: ["US", "CA", "MX"]
+  baseRate    Float    // Base shipping rate in THB
+  perKgRate   Float    // Additional rate per kg
+  freeShippingThreshold Float? // Order total for free shipping
+  estimatedDays String  // e.g., "5-7 business days"
+  isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
-  matches TournamentMatch[]
-
-  @@map("tournaments")
+  
+  @@map("shipping_zones")
 }
 
-model TournamentMatch {
-  id            String   @id @default(cuid())
-  tournamentId  String
-  round         String
-  roundTh       String
-  category      String
-  categoryTh    String
-  court         String
-  time          String
-  date          DateTime
+// ==================== PAYMENTS ====================
 
-  // Player 1
-  player1         String
-  player1Nickname String?
-  player1Photo    String?
-  player1Gender   String?
-  player1Birthdate DateTime?
-  player1Seed     Int?
-
-  // Player 1 Partner (for doubles)
-  player1Partner         String?
-  player1PartnerNickname String?
-  player1PartnerPhoto    String?
-  player1PartnerGender   String?
-  player1PartnerBirthdate DateTime?
-
-  // Player 2
-  player2         String
-  player2Nickname String?
-  player2Photo    String?
-  player2Gender   String?
-  player2Birthdate DateTime?
-  player2Seed     Int?
-
-  // Player 2 Partner (for doubles)
-  player2Partner         String?
-  player2PartnerNickname String?
-  player2PartnerPhoto    String?
-  player2PartnerGender   String?
-  player2PartnerBirthdate DateTime?
-
-  // Scores (JSON array of { player1: number, player2: number })
-  scores        Json?
-  winner        Int?      // 1 or 2
-  status        MatchStatus @default(SCHEDULED)
-  liveStreamUrl String?
-
-  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-
-  @@map("tournament_matches")
+model Payment {
+  id              String        @id @default(cuid())
+  orderId         String?
+  auctionId       String?
+  userId          String
+  amount          Float
+  currency        String        @default("THB")
+  amountUsd       Float?        // Converted amount for reference
+  exchangeRate    Float?        // Exchange rate at time of payment
+  
+  provider        PaymentProvider
+  providerId      String?       // Stripe/PayPal transaction ID
+  status          PaymentStatus @default(PENDING)
+  
+  metadata        Json?         // Additional payment info
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  user            User          @relation(fields: [userId], references: [id])
+  
+  @@map("payments")
 }
 
-enum TournamentStatus {
-  UPCOMING
-  ONGOING
-  COMPLETED
+enum PaymentProvider {
+  STRIPE
+  PAYPAL
+  BANK_TRANSFER
+  PROMPTPAY
 }
 
-enum MatchStatus {
-  SCHEDULED
-  LIVE
-  COMPLETED
+// ==================== EMAIL NOTIFICATIONS ====================
+
+model EmailLog {
+  id          String    @id @default(cuid())
+  userId      String?
+  email       String
+  type        EmailType
+  subject     String
+  status      EmailStatus @default(PENDING)
+  sentAt      DateTime?
+  error       String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  
+  @@map("email_logs")
+}
+
+enum EmailType {
+  ORDER_CONFIRMATION
+  ORDER_SHIPPED
+  ORDER_DELIVERED
+  AUCTION_OUTBID
+  AUCTION_WON
+  AUCTION_PAYMENT_REMINDER
+  PASSWORD_RESET
+  WELCOME
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
 }
 
 // ==================== ARTICLES ====================
@@ -429,10 +536,14 @@ model Article {
   titleTh     String
   excerpt     String?
   excerptTh   String?
-  content     String
-  contentTh   String
   coverImage  String?
+  heroImage   String?
+  image       String?
   category    String
+  categoryTh  String
+  sections    Json?
+  content     String?
+  contentTh   String?
   tags        String[]
   authorName  String
   authorPhoto String?
@@ -442,4 +553,18 @@ model Article {
   updatedAt   DateTime @updatedAt
 
   @@map("articles")
+}
+
+model InstagramPost {
+  id        String   @id @default(cuid())
+  imageUrl  String
+  handle    String?
+  link      String?
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@map("instagram_posts")
 }

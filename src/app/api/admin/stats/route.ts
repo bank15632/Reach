@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/auth';
-import prisma from '@/lib/db/prisma';
+import { requireAdminPermission } from '@/lib/auth';
+import { getPrisma } from '@/lib/db/prisma';
 
 export async function GET() {
     try {
-        await requireAdmin();
+        await requireAdminPermission('VIEW_DASHBOARD');
+        const prisma = getPrisma();
 
         // Get all stats in parallel
         const [
@@ -14,6 +15,11 @@ export async function GET() {
             pendingOrders,
             lowStockProducts,
             revenueData,
+            totalArticles,
+            totalAuctions,
+            activeAuctions,
+            totalPartners,
+            pendingWithdrawals,
         ] = await Promise.all([
             prisma.product.count(),
             prisma.order.count(),
@@ -24,6 +30,11 @@ export async function GET() {
                 where: { status: 'DELIVERED' },
                 _sum: { total: true },
             }),
+            prisma.article.count(),
+            prisma.auction.count(),
+            prisma.auction.count({ where: { status: 'ACTIVE' } }),
+            prisma.partner.count(),
+            prisma.partnerWithdrawal.count({ where: { status: 'PENDING' } }),
         ]);
 
         return NextResponse.json({
@@ -33,6 +44,11 @@ export async function GET() {
             totalRevenue: revenueData._sum.total || 0,
             pendingOrders,
             lowStockProducts,
+            totalArticles,
+            totalAuctions,
+            activeAuctions,
+            totalPartners,
+            pendingWithdrawals,
         });
     } catch (error) {
         console.error('Error fetching admin stats:', error);

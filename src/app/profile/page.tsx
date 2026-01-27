@@ -31,7 +31,9 @@ import {
     X,
     Check,
     Handshake,
+    Shield,
 } from "lucide-react";
+import { isAdminRole } from "@/lib/adminAccess";
 
 export default function ProfilePage() {
     const { language } = useLanguage();
@@ -755,6 +757,26 @@ export default function ProfilePage() {
                         </div>
                         <ChevronRight className="w-5 h-5 text-gray-400" />
                     </Link>
+
+                    {isAdminRole(userProfile?.role) && (
+                        <Link
+                            href="/admin"
+                            className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
+                        >
+                            <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                                <Shield className="w-5 h-5 text-purple-600" />
+                            </div>
+                            <div className="flex-1">
+                                <p className="font-medium text-gray-900">
+                                    {language === "th" ? "แอดมิน" : "Admin"}
+                                </p>
+                                <p className="text-sm text-gray-500">
+                                    {language === "th" ? "เข้าสู่ระบบจัดการ" : "Go to admin dashboard"}
+                                </p>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-gray-400" />
+                        </Link>
+                    )}
 
                     <button
                         onClick={handleLogout}

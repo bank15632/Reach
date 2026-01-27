@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import { getPrisma } from './db/prisma';
+import { AdminPermissionKey, hasAdminPermission, isAdminRole, isSuperAdmin } from './adminAccess';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
 const TOKEN_EXPIRY = '7d';
@@ -66,6 +67,7 @@ export async function getSessionUser(token: string) {
                     phone: true,
                     avatar: true,
                     role: true,
+                    adminPermissions: true,
                     rewardPoints: true,
                     partnerInfo: {
                         include: {
@@ -115,7 +117,27 @@ export async function requireAuth() {
 export async function requireAdmin() {
     const user = await requireAuth();
 
-    if (user.role !== 'ADMIN') {
+    if (!isAdminRole(user.role)) {
+        throw new Error('Forbidden');
+    }
+
+    return user;
+}
+
+export async function requireSuperAdmin() {
+    const user = await requireAuth();
+
+    if (!isSuperAdmin(user.role)) {
+        throw new Error('Forbidden');
+    }
+
+    return user;
+}
+
+export async function requireAdminPermission(permission: AdminPermissionKey) {
+    const user = await requireAuth();
+
+    if (!hasAdminPermission(user.role, user.adminPermissions, permission)) {
         throw new Error('Forbidden');
     }
 
@@ -125,7 +147,7 @@ export async function requireAdmin() {
 export async function requirePartner() {
     const user = await requireAuth();
 
-    if (user.role !== 'PARTNER' && user.role !== 'ADMIN') {
+    if (user.role !== 'PARTNER' && !isAdminRole(user.role)) {
         throw new Error('Forbidden');
     }
 

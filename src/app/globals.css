@@ -187,3 +187,16 @@ body {
   left: -1rem;
   opacity: 0.3;
 }
+
+/* Admin Theme Overrides */
+.admin-theme {
+  color: #111827;
+}
+
+.admin-theme :is(input, textarea, select) {
+  color: #111827;
+}
+
+.admin-theme :is(input, textarea, select)::placeholder {
+  color: #9ca3af;
+}

@@ -7,7 +7,7 @@ import Link from "next/link";
 import Navbar from "@/components/ui/Navbar";
 import { useLanguage } from "@/context/LanguageContext";
 import { useUser, PartnerCode } from "@/context/UserContext";
-import { products as racketProducts, shoeProducts, sportswearProducts } from "@/data/productData";
+import { ApiProduct, fetchProducts } from "@/lib/apiClient";
 import {
     ChevronLeft,
     Plus,
@@ -28,12 +28,13 @@ import {
     CheckCircle,
 } from "lucide-react";
 
-// All products combined for selection
-const allProducts = [
-    ...racketProducts.map(p => ({ id: p.id, name: p.name, nameTh: p.nameTh, category: "rackets" })),
-    ...shoeProducts.map(p => ({ id: p.id, name: p.name, nameTh: p.nameTh, category: "shoes" })),
-    ...sportswearProducts.map(p => ({ id: p.id, name: p.name, nameTh: p.nameTh, category: "sportswear" })),
-];
+const categoryMap: Record<string, { key: string }> = {
+    RACKETS: { key: "rackets" },
+    SHOES: { key: "shoes" },
+    SPORTSWEAR: { key: "sportswear" },
+    SUPPLEMENTS: { key: "supplements" },
+    ACCESSORIES: { key: "accessories" },
+};
 
 export default function PartnerCodesPage() {
     const { language } = useLanguage();
@@ -42,8 +43,39 @@ export default function PartnerCodesPage() {
     const [copied, setCopied] = useState<string | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [editingCode, setEditingCode] = useState<PartnerCode | null>(null);
+    const [productOptions, setProductOptions] = useState<Array<{ id: string; name: string; nameTh: string; category: string }>>([]);
+    const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
     const partnerInfo = userProfile?.partnerInfo;
+
+    useEffect(() => {
+        let isMounted = true;
+
+        async function loadProducts() {
+            try {
+                const products = await fetchProducts({ limit: 200 });
+                if (!isMounted) return;
+                setProductOptions(
+                    products.map((product: ApiProduct) => ({
+                        id: product.id,
+                        name: product.name,
+                        nameTh: product.nameTh,
+                        category: categoryMap[product.category]?.key ?? "accessories",
+                    }))
+                );
+            } finally {
+                if (isMounted) {
+                    setIsLoadingProducts(false);
+                }
+            }
+        }
+
+        loadProducts();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     // Form state
     const [formDiscount, setFormDiscount] = useState(10);
@@ -626,7 +658,12 @@ export default function PartnerCodesPage() {
                                     </div>
                                     {formProducts !== "all" && (
                                         <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2 space-y-1">
-                                            {allProducts.slice(0, 10).map((product) => (
+                                            {isLoadingProducts && (
+                                                <p className="text-sm text-gray-500 px-2 py-1">
+                                                    {language === "th" ? "กำลังโหลดสินค้า..." : "Loading products..."}
+                                                </p>
+                                            )}
+                                            {!isLoadingProducts && productOptions.slice(0, 10).map((product) => (
                                                 <label
                                                     key={product.id}
                                                     className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"

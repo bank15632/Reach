@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/auth';
+import { requireAdminPermission } from '@/lib/auth';
 import prisma from '@/lib/db/prisma';
 
 export async function GET(request: NextRequest) {
     try {
-        await requireAdmin();
+        await requireAdminPermission('MANAGE_USERS');
 
         const { searchParams } = new URL(request.url);
         const role = searchParams.get('role');

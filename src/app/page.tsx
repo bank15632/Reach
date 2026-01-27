@@ -1,12 +1,11 @@
 "use client";
 
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { Pause, Play, Calendar, MapPin, Users, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Pause, Play } from "lucide-react";
 import Navbar from "@/components/ui/Navbar";
 import { useLanguage } from "@/context/LanguageContext";
-import { products as racketProducts, shoeProducts, sportswearProducts, supplementProducts } from "@/data/productData";
-import { tournaments, statusConfig, TournamentStatus } from "@/data/tournamentData";
+import { ApiArticle, ApiInstagramPost, ApiProduct, fetchArticles, fetchInstagramPosts, fetchProducts, getDisplayPrice } from "@/lib/apiClient";
 
 // Hero Section - Auto-Sliding Carousel like NOBULL
 function HeroSection() {
@@ -229,206 +228,6 @@ function HeroSection() {
   );
 }
 
-// Tournament Showcase - Slider row with action buttons
-function TournamentShowcase() {
-  const { language } = useLanguage();
-  const tournamentSlides = useMemo(() => tournaments.slice(0, 4), []);
-  const [activeSlide, setActiveSlide] = useState(0);
-
-  if (tournamentSlides.length === 0) return null;
-
-  const totalSlides = tournamentSlides.length;
-
-  const formatDateRange = (startDate: string, endDate: string) => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    if (language === 'th') {
-      const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-      return `${start.getDate()}-${end.getDate()} ${months[start.getMonth()]} ${start.getFullYear() + 543}`;
-    }
-
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${months[start.getMonth()]} ${start.getDate()}-${end.getDate()}, ${start.getFullYear()}`;
-  };
-
-  const actionConfig: Record<TournamentStatus, { label: string; labelTh: string; className: string; tab: string }> = {
-    registration_open: {
-      label: 'Register Now',
-      labelTh: 'สมัครแข่งขัน',
-      className: 'bg-brand-yellow text-black hover:bg-yellow-400',
-      tab: 'register'
-    },
-    registration_closed: {
-      label: 'View Schedule',
-      labelTh: 'ดูกำหนดการ',
-      className: 'bg-white text-black hover:bg-gray-100',
-      tab: 'schedule'
-    },
-    coming_soon: {
-      label: 'See Details',
-      labelTh: 'ดูรายละเอียด',
-      className: 'bg-white text-black hover:bg-gray-100',
-      tab: 'info'
-    },
-    in_progress: {
-      label: 'Live Results',
-      labelTh: 'ดูผลสด',
-      className: 'bg-red-500 text-white hover:bg-red-600',
-      tab: 'cards'
-    },
-    completed: {
-      label: 'View Results',
-      labelTh: 'ดูผลคะแนน',
-      className: 'bg-gray-900 text-white hover:bg-black',
-      tab: 'winners'
-    }
-  };
-
-  const goPrev = () => setActiveSlide((prev) => (prev - 1 + totalSlides) % totalSlides);
-  const goNext = () => setActiveSlide((prev) => (prev + 1) % totalSlides);
-
-  return (
-    <section className="relative py-16 md:py-20">
-      <div
-        className="absolute inset-0 bg-cover bg-center"
-        style={{ backgroundImage: "url('/images/tournament-showcase.png')" }}
-      />
-      <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/60 to-black/30" />
-
-      <div className="relative z-10 max-w-7xl mx-auto px-6">
-        <div className="flex flex-col lg:flex-row lg:items-center gap-10">
-          <div className="lg:max-w-sm">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-              {language === 'th' ? 'ทัวร์นาเมนต์ล่าสุด' : 'Latest Tournaments'}
-            </h2>
-            <p className="text-gray-300 text-base md:text-lg mb-6">
-              {language === 'th'
-                ? 'อัปเดตการแข่งขันใหม่ล่าสุด พร้อมเปิดรับสมัครและติดตามผลแบบเรียลไทม์'
-                : 'Fresh competitions, live updates, and registration details for every event.'}
-            </p>
-            <a
-              href="/tournament"
-              className="inline-block bg-white text-black px-6 py-3 font-semibold text-sm tracking-wider rounded-full hover:bg-brand-yellow transition-colors"
-            >
-              {language === 'th' ? 'ดูทัวร์นาเมนต์ทั้งหมด' : 'View All Tournaments'}
-            </a>
-          </div>
-
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-white/70 text-xs font-semibold tracking-[0.3em] uppercase">
-                {language === 'th' ? 'ไฮไลท์ทัวร์นาเมนต์' : 'Tournament Highlights'}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={goPrev}
-                  className="p-2 rounded-full border border-white/40 text-white hover:bg-white/20 transition-colors"
-                  aria-label="Previous tournament"
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                <button
-                  onClick={goNext}
-                  className="p-2 rounded-full border border-white/40 text-white hover:bg-white/20 transition-colors"
-                  aria-label="Next tournament"
-                >
-                  <ChevronRight size={18} />
-                </button>
-              </div>
-            </div>
-
-            <div className="overflow-hidden">
-              <div
-                className="flex transition-transform duration-500"
-                style={{ transform: `translateX(-${activeSlide * 100}%)` }}
-              >
-                {tournamentSlides.map((tournament) => {
-                  const statusDisplay = statusConfig[tournament.status];
-                  const action = actionConfig[tournament.status];
-                  const actionHref = action.tab
-                    ? `/tournament/${tournament.id}?tab=${action.tab}`
-                    : `/tournament/${tournament.id}`;
-
-                  return (
-                    <div key={tournament.id} className="min-w-full">
-                      <div className="bg-white/95 backdrop-blur rounded-2xl p-6 md:p-7 shadow-xl">
-                        <div className="flex items-center justify-between">
-                          <span className={`px-2.5 py-1 text-xs font-bold rounded ${statusDisplay.bgColor} ${statusDisplay.textColor}`}>
-                            {language === 'th' ? statusDisplay.labelTh : statusDisplay.label}
-                          </span>
-                          <span className="text-xs font-semibold text-gray-500">
-                            {language === 'th' ? 'เงินรางวัล' : 'Prize'} {tournament.prize}
-                          </span>
-                        </div>
-
-                        <h3 className="text-xl md:text-2xl font-bold text-gray-900 mt-4">
-                          {language === 'th' ? tournament.nameTh : tournament.name}
-                        </h3>
-
-                        <div className="mt-4 space-y-2 text-sm text-gray-600">
-                          <div className="flex items-center gap-2">
-                            <Calendar size={16} className="text-gray-400" />
-                            <span>{formatDateRange(tournament.dateStart, tournament.dateEnd)}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <MapPin size={16} className="text-gray-400" />
-                            <span>
-                              {language === 'th'
-                                ? `${tournament.location.cityTh} • ${tournament.location.venueTh}`
-                                : `${tournament.location.city} • ${tournament.location.venue}`}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Users size={16} className="text-gray-400" />
-                            <span>
-                              {tournament.registeredCount}/{tournament.participants} {language === 'th' ? 'ผู้สมัคร' : 'registered'}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="mt-6 flex items-center justify-between gap-4">
-                          <span className="text-sm font-semibold text-gray-800">
-                            {language === 'th' ? 'ค่าสมัคร' : 'Entry fee'} {tournament.entryFee || '—'}
-                          </span>
-                          <a
-                            href={actionHref}
-                            className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${action.className}`}
-                          >
-                            {language === 'th' ? action.labelTh : action.label}
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="mt-5 flex items-center gap-2">
-              {tournamentSlides.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setActiveSlide(index)}
-                  className={`h-2.5 w-2.5 rounded-full transition-colors ${index === activeSlide ? 'bg-brand-yellow' : 'bg-white/40'}`}
-                  aria-label={`Go to slide ${index + 1}`}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-type FeaturedColor = {
-  name: string;
-  nameTh: string;
-  hex: string;
-  image: string;
-};
-
 interface FeaturedProduct {
   id: string;
   name: string;
@@ -437,89 +236,68 @@ interface FeaturedProduct {
   categoryLabelTh: string;
   price: number;
   originalPrice?: number;
-  badge?: string;
   href: string;
-  images: string[];
-  colors: FeaturedColor[];
+  image: string;
+  hoverImage?: string;
 }
 
 // Featured Products Grid - NOBULL Style
 function FeaturedProducts() {
   const { language } = useLanguage();
-  const [selectedColors, setSelectedColors] = useState<{ [key: string]: number }>({});
+  const [featuredProducts, setFeaturedProducts] = useState<FeaturedProduct[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const featuredProducts = useMemo<FeaturedProduct[]>(() => {
-    const isBestSeller = (badge?: string) => badge?.toLowerCase().includes('best');
+  useEffect(() => {
+    let isMounted = true;
 
-    const rackets = racketProducts
-      .filter((product) => isBestSeller(product.badge))
-      .map((product) => ({
-        id: product.id,
-        name: product.name,
-        nameTh: product.nameTh,
-        categoryLabel: 'Badminton',
-        categoryLabelTh: 'ไม้แบดมินตัน',
-        price: product.price,
-        originalPrice: product.originalPrice,
-        badge: product.badge,
-        href: `/rackets/${product.id}`,
-        images: product.images,
-        colors: product.colors,
-      }));
+    async function loadFeaturedProducts() {
+      try {
+        const products = await fetchProducts({ limit: 40 });
+        if (!isMounted) return;
 
-    const shoes = shoeProducts
-      .filter((product) => isBestSeller(product.badge))
-      .map((product) => ({
-        id: product.id,
-        name: product.name,
-        nameTh: product.nameTh,
-        categoryLabel: 'Shoes',
-        categoryLabelTh: 'รองเท้า',
-        price: product.price,
-        originalPrice: product.originalPrice,
-        badge: product.badge,
-        href: `/shoes/${product.id}`,
-        images: product.images,
-        colors: product.colors,
-      }));
+        const categoryMap: Record<string, { label: string; labelTh: string; hrefPrefix: string }> = {
+          RACKETS: { label: "Badminton", labelTh: "ไม้แบดมินตัน", hrefPrefix: "/rackets" },
+          SHOES: { label: "Shoes", labelTh: "รองเท้า", hrefPrefix: "/shoes" },
+          SPORTSWEAR: { label: "Sportswear", labelTh: "ชุดกีฬา", hrefPrefix: "/sportswear" },
+          SUPPLEMENTS: { label: "Supplements", labelTh: "อาหารเสริม", hrefPrefix: "/supplements" },
+          ACCESSORIES: { label: "Accessories", labelTh: "อุปกรณ์เสริม", hrefPrefix: "/shop" },
+        };
 
-    const sportswear = sportswearProducts
-      .filter((product) => isBestSeller(product.badge))
-      .map((product) => ({
-        id: product.id,
-        name: product.name,
-        nameTh: product.nameTh,
-        categoryLabel: 'Sportswear',
-        categoryLabelTh: 'ชุดกีฬา',
-        price: product.price,
-        originalPrice: product.originalPrice,
-        badge: product.badge,
-        href: `/sportswear/${product.id}`,
-        images: product.images,
-        colors: product.colors,
-      }));
+        const source = products.filter((product) => product.featured);
+        const list = (source.length ? source : products)
+          .slice(0, 4)
+          .map((product: ApiProduct) => {
+            const mapped = categoryMap[product.category] ?? categoryMap.ACCESSORIES;
+            const price = getDisplayPrice(product);
+            const image = product.images?.[0] ?? "/placeholder.png";
+            return {
+              id: product.id,
+              name: product.name,
+              nameTh: product.nameTh,
+              categoryLabel: mapped.label,
+              categoryLabelTh: mapped.labelTh,
+              price: price.current,
+              originalPrice: price.original,
+              href: `${mapped.hrefPrefix}/${product.id}`,
+              image,
+              hoverImage: product.images?.[1],
+            };
+          });
 
-    const supplements = supplementProducts
-      .filter((product) => isBestSeller(product.badge))
-      .map((product) => ({
-        id: product.id,
-        name: product.name,
-        nameTh: product.nameTh,
-        categoryLabel: 'Supplements',
-        categoryLabelTh: 'อาหารเสริม',
-        price: product.price,
-        originalPrice: product.originalPrice,
-        badge: product.badge,
-        href: `/supplements/${product.id}`,
-        images: product.images,
-        colors: product.colors,
-      }));
+        setFeaturedProducts(list);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
 
-    return [...rackets, ...shoes, ...sportswear, ...supplements].slice(0, 4);
+    loadFeaturedProducts();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
-
-  const getSelectedColorIndex = (productId: string) => selectedColors[productId] || 0;
-  const isLightSwatch = (hex: string) => ['#ffffff', '#f5f5f5', '#f3e5ab'].includes(hex.toLowerCase());
 
   return (
     <section className="py-20 bg-white">
@@ -539,11 +317,19 @@ function FeaturedProducts() {
 
         {/* Products Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+          {isLoading && (
+            <div className="col-span-full text-center text-gray-500">
+              {language === 'th' ? 'กำลังโหลดสินค้า...' : 'Loading products...'}
+            </div>
+          )}
+          {!isLoading && featuredProducts.length === 0 && (
+            <div className="col-span-full text-center text-gray-500">
+              {language === 'th' ? 'ยังไม่มีสินค้าแนะนำ' : 'No featured products yet'}
+            </div>
+          )}
           {featuredProducts.map((product: FeaturedProduct, index: number) => {
-            const selectedIndex = getSelectedColorIndex(product.id);
-            const selectedColor = product.colors[selectedIndex] ?? product.colors[0];
-            const displayImage = selectedColor?.image || product.images[0];
-            const hoverImage = product.images[1] || displayImage;
+            const displayImage = product.image;
+            const hoverImage = product.hoverImage || displayImage;
 
             return (
               <motion.div
@@ -554,26 +340,12 @@ function FeaturedProducts() {
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 className="group"
               >
-                {/* Product Card */}
                 <a href={product.href} className="block relative">
-                  {/* Badge */}
-                  {product.badge && (
-                    <div className={`absolute top-3 left-3 z-10 px-2 py-1 text-xs font-bold ${product.badge.includes('OFF') || product.badge.includes('ประหยัด')
-                      ? 'bg-lime-400 text-black'
-                      : 'bg-black text-white'
-                      }`}>
-                      {product.badge}
-                    </div>
-                  )}
-
-                  {/* Image Container */}
                   <div className="relative aspect-square overflow-hidden bg-gray-100">
-                    {/* Main Image */}
                     <div
                       className="absolute inset-0 bg-cover bg-center transition-opacity duration-300 group-hover:opacity-0"
                       style={{ backgroundImage: `url('${displayImage}')` }}
                     />
-                    {/* Hover Image */}
                     <div
                       className="absolute inset-0 bg-cover bg-center opacity-0 transition-opacity duration-300 group-hover:opacity-100"
                       style={{ backgroundImage: `url('${hoverImage}')` }}
@@ -581,49 +353,20 @@ function FeaturedProducts() {
                   </div>
                 </a>
 
-                {/* Color Swatches */}
-                <div className="flex gap-1.5 mt-3 mb-3">
-                  {product.colors.map((color: FeaturedProduct['colors'][number], colorIndex: number) => (
-                    <button
-                      key={colorIndex}
-                      type="button"
-                      onClick={() => setSelectedColors(prev => ({ ...prev, [product.id]: colorIndex }))}
-                      className={`w-7 h-7 rounded-full border-2 transition-all ${colorIndex === selectedIndex
-                        ? 'border-black ring-2 ring-offset-1 ring-black'
-                        : 'border-gray-300 hover:border-gray-500'
-                        }`}
-                      style={{ backgroundColor: color.hex }}
-                      title={language === 'th' ? color.nameTh : color.name}
-                    >
-                      {isLightSwatch(color.hex) && (
-                        <span className="block w-full h-full border border-gray-200 rounded-full" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Product Info */}
-                <a href={product.href} className="block">
+                <div className="mt-3">
                   <h3 className="text-sm font-semibold text-black mb-0.5 group-hover:underline">
                     {language === 'th' ? product.nameTh : product.name}
                   </h3>
                   <p className="text-xs text-gray-500 mb-2">
                     {language === 'th' ? product.categoryLabelTh : product.categoryLabel}
                   </p>
-
-                  {/* Divider */}
-                  <div className="border-t border-gray-200 pt-2 flex items-center justify-between">
-                    <span className="text-xs text-gray-600">
-                      {language === 'th' ? selectedColor?.nameTh : selectedColor?.name}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-black">฿{product.price.toLocaleString()}</span>
-                      {product.originalPrice && (
-                        <span className="text-xs text-gray-400 line-through">฿{product.originalPrice.toLocaleString()}</span>
-                      )}
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-black">฿{product.price.toLocaleString()}</span>
+                    {product.originalPrice && (
+                      <span className="text-xs text-gray-400 line-through">฿{product.originalPrice.toLocaleString()}</span>
+                    )}
                   </div>
-                </a>
+                </div>
               </motion.div>
             );
           })}
@@ -693,41 +436,30 @@ function NewToReachBanner() {
 // Latest Articles Section - 9:16 Cards
 function LatestArticles() {
   const { language } = useLanguage();
+  const [articles, setArticles] = useState<ApiArticle[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const articles = [
-    {
-      id: 'choosing-right-racket',
-      title: 'วิธีเลือกไม้แบดให้เหมาะกับสไตล์การเล่น',
-      titleEn: 'How to Choose the Right Racket',
-      image: 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?q=80&w=800',
-      category: 'Tips',
-      categoryTh: 'เคล็ดลับ',
-    },
-    {
-      id: 'string-tension-guide',
-      title: 'ความตึงเอ็นแบบไหนเหมาะกับคุณ?',
-      titleEn: 'String Tension Guide',
-      image: 'https://images.unsplash.com/photo-1599391398131-cd12dfc6c24e?q=80&w=800',
-      category: 'Guide',
-      categoryTh: 'คู่มือ',
-    },
-    {
-      id: 'warm-up-exercises',
-      title: '5 ท่าอบอุ่นร่างกายก่อนเล่นแบด',
-      titleEn: '5 Essential Warm-up Exercises',
-      image: 'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?q=80&w=800',
-      category: 'Fitness',
-      categoryTh: 'ฟิตเนส',
-    },
-    {
-      id: 'doubles-strategy',
-      title: 'กลยุทธ์คู่: ตำแหน่งและการเคลื่อนที่',
-      titleEn: 'Doubles Strategy: Positioning',
-      image: 'https://images.unsplash.com/photo-1613918431703-aa50889e3be6?q=80&w=800',
-      category: 'Strategy',
-      categoryTh: 'กลยุทธ์',
-    },
-  ];
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadArticles() {
+      try {
+        const data = await fetchArticles({ limit: 4 });
+        if (!isMounted) return;
+        setArticles(data);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadArticles();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <section className="py-16 bg-white">
@@ -752,6 +484,16 @@ function LatestArticles() {
 
         {/* Articles Grid - 4 cards 9:16 ratio */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+          {isLoading && (
+            <div className="col-span-full text-center text-gray-500">
+              {language === 'th' ? 'กำลังโหลดบทความ...' : 'Loading articles...'}
+            </div>
+          )}
+          {!isLoading && articles.length === 0 && (
+            <div className="col-span-full text-center text-gray-500">
+              {language === 'th' ? 'ยังไม่มีบทความ' : 'No articles available'}
+            </div>
+          )}
           {articles.map((article, index) => (
             <motion.a
               key={article.id}
@@ -766,7 +508,7 @@ function LatestArticles() {
               <div className="relative aspect-[9/16] overflow-hidden bg-gray-100 rounded-lg">
                 <div
                   className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                  style={{ backgroundImage: `url('${article.image}')` }}
+                  style={{ backgroundImage: `url('${article.image || article.heroImage || "/placeholder.png"}')` }}
                 />
                 {/* Gradient overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
@@ -796,57 +538,30 @@ function InstagramGallery() {
   const { language } = useLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [posts, setPosts] = useState<ApiInstagramPost[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const posts = [
-    {
-      id: 'post1',
-      image: 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?q=80&w=600',
-      handle: '@reachbadminton',
-      link: 'https://instagram.com/reachbadminton',
-    },
-    {
-      id: 'post2',
-      image: 'https://images.unsplash.com/photo-1599391398131-cd12dfc6c24e?q=80&w=600',
-      handle: '@reachtraining',
-      link: 'https://instagram.com/reachtraining',
-    },
-    {
-      id: 'post3',
-      image: 'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?q=80&w=600',
-      handle: '@reachcommunity',
-      link: 'https://instagram.com/reachcommunity',
-    },
-    {
-      id: 'post4',
-      image: 'https://images.unsplash.com/photo-1517466787929-bc90951d0974?q=80&w=600',
-      handle: '@reachstyle',
-      link: 'https://instagram.com/reachstyle',
-    },
-    {
-      id: 'post5',
-      image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=600',
-      handle: '@reachfootwork',
-      link: 'https://instagram.com/reachfootwork',
-    },
-    {
-      id: 'post6',
-      image: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=600',
-      handle: '@reachgear',
-      link: 'https://instagram.com/reachgear',
-    },
-    {
-      id: 'post7',
-      image: 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?q=80&w=600',
-      handle: '@reachmoves',
-      link: 'https://instagram.com/reachmoves',
-    },
-    {
-      id: 'post8',
-      image: 'https://images.unsplash.com/photo-1578768079052-aa76e52ff62e?q=80&w=600',
-      handle: '@reachofficial',
-      link: 'https://instagram.com/reachofficial',
-    },
-  ];
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadPosts() {
+      try {
+        const data = await fetchInstagramPosts({ limit: 12 });
+        if (!isMounted) return;
+        setPosts(data);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadPosts();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleScroll = () => {
     if (scrollRef.current) {
@@ -888,32 +603,44 @@ function InstagramGallery() {
           className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {posts.map((post, index) => (
-            <motion.a
-              key={post.id}
-              href={post.link}
-              target="_blank"
-              rel="noreferrer"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.05 }}
-              className="flex-shrink-0 w-[70%] md:w-[23%] max-w-[320px] snap-start group"
-            >
-              <div className="relative aspect-[4/5] rounded-lg overflow-hidden bg-black">
-                {/* Image */}
-                <div
-                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                  style={{ backgroundImage: `url('${post.image}')` }}
-                />
-                {/* Hover overlay */}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-              </div>
-              <p className="text-center text-sm text-gray-600 mt-2">
-                {post.handle}
-              </p>
-            </motion.a>
-          ))}
+          {isLoading && (
+            <div className="text-sm text-gray-500 px-2">
+              {language === 'th' ? 'กำลังโหลดโพสต์...' : 'Loading posts...'}
+            </div>
+          )}
+          {!isLoading && posts.length === 0 && (
+            <div className="text-sm text-gray-500 px-2">
+              {language === 'th' ? 'ยังไม่มีโพสต์' : 'No posts available'}
+            </div>
+          )}
+          {posts.map((post, index) => {
+            const link = post.link || "https://instagram.com";
+            return (
+              <motion.a
+                key={post.id}
+                href={link}
+                target="_blank"
+                rel="noreferrer"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.05 }}
+                className="flex-shrink-0 w-[70%] md:w-[23%] max-w-[320px] snap-start group"
+              >
+                <div className="relative aspect-[4/5] rounded-lg overflow-hidden bg-black">
+                  <img
+                    src={post.imageUrl}
+                    alt={post.handle ? `Instagram post by ${post.handle}` : "Instagram post"}
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                </div>
+                <p className="text-center text-sm text-gray-600 mt-2">
+                  {post.handle || "@reach"}
+                </p>
+              </motion.a>
+            );
+          })}
         </div>
 
         {/* Large Brand Text */}
@@ -1076,7 +803,6 @@ export default function Home() {
       <FeaturedProducts />
       <NewToReachBanner />
       <LatestArticles />
-      <TournamentShowcase />
       <InstagramGallery />
       <Footer />
     </main>

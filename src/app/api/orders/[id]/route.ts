@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db/prisma';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, requireAdminPermission } from '@/lib/auth';
+import { hasAdminPermission } from '@/lib/adminAccess';
 
 type Params = Promise<{ id: string }>;
 
@@ -52,7 +53,8 @@ export async function GET(
         }
 
         // Check ownership (unless admin)
-        if (order.userId !== user.id && user.role !== 'ADMIN') {
+        const canManageOrders = hasAdminPermission(user.role, user.adminPermissions, 'MANAGE_ORDERS');
+        if (order.userId !== user.id && !canManageOrders) {
             return NextResponse.json(
                 { error: 'Forbidden' },
                 { status: 403 }
@@ -75,14 +77,7 @@ export async function PUT(
     { params }: { params: Params }
 ) {
     try {
-        const user = await getCurrentUser();
-
-        if (!user || user.role !== 'ADMIN') {
-            return NextResponse.json(
-                { error: 'Forbidden' },
-                { status: 403 }
-            );
-        }
+        await requireAdminPermission('MANAGE_ORDERS');
 
         const { id } = await params;
         const body = await request.json();
@@ -165,7 +160,8 @@ export async function DELETE(
         }
 
         // Check ownership (unless admin)
-        if (order.userId !== user.id && user.role !== 'ADMIN') {
+        const canManageOrders = hasAdminPermission(user.role, user.adminPermissions, 'MANAGE_ORDERS');
+        if (order.userId !== user.id && !canManageOrders) {
             return NextResponse.json(
                 { error: 'Forbidden' },
                 { status: 403 }
@@ -173,7 +169,7 @@ export async function DELETE(
         }
 
         // Only allow cancellation of pending orders
-        if (order.status !== 'PENDING' && user.role !== 'ADMIN') {
+        if (order.status !== 'PENDING' && !canManageOrders) {
             return NextResponse.json(
                 { error: 'Cannot cancel order after processing' },
                 { status: 400 }

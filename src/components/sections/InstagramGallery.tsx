@@ -1,65 +1,39 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
-import Image from "next/image";
+import { ApiInstagramPost, fetchInstagramPosts } from "@/lib/apiClient";
 
 export default function InstagramGallery() {
   const { language } = useLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
 
-  const posts = [
-    {
-      id: 'post1',
-      image: 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?q=80&w=600',
-      handle: '@reachbadminton',
-      link: 'https://instagram.com/reachbadminton',
-    },
-    {
-      id: 'post2',
-      image: 'https://images.unsplash.com/photo-1599391398131-cd12dfc6c24e?q=80&w=600',
-      handle: '@reachtraining',
-      link: 'https://instagram.com/reachtraining',
-    },
-    {
-      id: 'post3',
-      image: 'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?q=80&w=600',
-      handle: '@reachcommunity',
-      link: 'https://instagram.com/reachcommunity',
-    },
-    {
-      id: 'post4',
-      image: 'https://images.unsplash.com/photo-1517466787929-bc90951d0974?q=80&w=600',
-      handle: '@reachstyle',
-      link: 'https://instagram.com/reachstyle',
-    },
-    {
-      id: 'post5',
-      image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=600',
-      handle: '@reachfootwork',
-      link: 'https://instagram.com/reachfootwork',
-    },
-    {
-      id: 'post6',
-      image: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=600',
-      handle: '@reachgear',
-      link: 'https://instagram.com/reachgear',
-    },
-    {
-      id: 'post7',
-      image: 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?q=80&w=600',
-      handle: '@reachmoves',
-      link: 'https://instagram.com/reachmoves',
-    },
-    {
-      id: 'post8',
-      image: 'https://images.unsplash.com/photo-1578768079052-aa76e52ff62e?q=80&w=600',
-      handle: '@reachofficial',
-      link: 'https://instagram.com/reachofficial',
-    },
-  ];
+  const [posts, setPosts] = useState<ApiInstagramPost[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadPosts() {
+      try {
+        const data = await fetchInstagramPosts({ limit: 12 });
+        if (!isMounted) return;
+        setPosts(data);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadPosts();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleScroll = () => {
     if (scrollRef.current) {
@@ -105,35 +79,46 @@ export default function InstagramGallery() {
           role="list"
           aria-label={language === 'th' ? 'แกลเลอรี่ Instagram' : 'Instagram gallery'}
         >
-          {posts.map((post, index) => (
-            <motion.a
-              key={post.id}
-              href={post.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.05 }}
-              className="flex-shrink-0 w-[70%] md:w-[23%] max-w-[320px] snap-start group"
-              role="listitem"
-            >
-              <div className="relative aspect-[4/5] rounded-lg overflow-hidden bg-black">
-                <Image
-                  src={post.image}
-                  alt={`Instagram post by ${post.handle}`}
-                  fill
-                  sizes="(max-width: 768px) 70vw, 23vw"
-                  className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  loading="lazy"
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" aria-hidden="true" />
-              </div>
-              <p className="text-center text-sm text-gray-600 mt-2">
-                {post.handle}
-              </p>
-            </motion.a>
-          ))}
+          {isLoading && (
+            <div className="text-sm text-gray-500 px-2">
+              {language === 'th' ? 'กำลังโหลดโพสต์...' : 'Loading posts...'}
+            </div>
+          )}
+          {!isLoading && posts.length === 0 && (
+            <div className="text-sm text-gray-500 px-2">
+              {language === 'th' ? 'ยังไม่มีโพสต์' : 'No posts available'}
+            </div>
+          )}
+          {posts.map((post, index) => {
+            const link = post.link || "https://instagram.com";
+            return (
+              <motion.a
+                key={post.id}
+                href={link}
+                target="_blank"
+                rel="noopener noreferrer"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.05 }}
+                className="flex-shrink-0 w-[70%] md:w-[23%] max-w-[320px] snap-start group"
+                role="listitem"
+              >
+                <div className="relative aspect-[4/5] rounded-lg overflow-hidden bg-black">
+                  <img
+                    src={post.imageUrl}
+                    alt={post.handle ? `Instagram post by ${post.handle}` : "Instagram post"}
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" aria-hidden="true" />
+                </div>
+                <p className="text-center text-sm text-gray-600 mt-2">
+                  {post.handle || "@reach"}
+                </p>
+              </motion.a>
+            );
+          })}
         </div>
 
         <div className="mt-8 overflow-hidden" aria-hidden="true">
