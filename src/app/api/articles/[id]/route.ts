@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db/prisma";
 
+type Params = Promise<{ id: string }>;
+
 function mapArticle(article: any) {
   return {
     id: article.slug || article.id,
@@ -21,13 +23,14 @@ function mapArticle(article: any) {
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Params }
 ) {
   try {
+    const { id } = await params;
     const article = await prisma.article.findFirst({
       where: {
         published: true,
-        OR: [{ id: params.id }, { slug: params.id }],
+        OR: [{ id }, { slug: id }],
       },
     });
 

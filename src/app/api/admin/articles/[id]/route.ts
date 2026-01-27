@@ -27,15 +27,18 @@ function parseJsonField(value: unknown, fieldName: string) {
   return value;
 }
 
+type Params = Promise<{ id: string }>;
+
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Params }
 ) {
   try {
     await requireAdminPermission("MANAGE_ARTICLES");
+    const { id } = await params;
 
     const article = await prisma.article.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!article) {
@@ -57,10 +60,11 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Params }
 ) {
   try {
     await requireAdminPermission("MANAGE_ARTICLES");
+    const { id } = await params;
 
     const body = await request.json();
 
@@ -69,7 +73,7 @@ export async function PUT(
     const published = body.published !== undefined ? Boolean(body.published) : undefined;
 
     const article = await prisma.article.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: { publishedAt: true },
     });
 
@@ -85,7 +89,7 @@ export async function PUT(
           : null;
 
     const updated = await prisma.article.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         slug: body.slug,
         title: body.title,
@@ -128,13 +132,14 @@ export async function PUT(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Params }
 ) {
   try {
     await requireAdminPermission("MANAGE_ARTICLES");
 
+    const { id } = await params;
     await prisma.article.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true });

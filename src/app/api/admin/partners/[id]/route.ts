@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/auth";
 import prisma from "@/lib/db/prisma";
 
+type Params = Promise<{ id: string }>;
+
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Params }
 ) {
   try {
     await requireAdminPermission("MANAGE_PARTNERS");
+    const { id } = await params;
 
     const body = await request.json();
     const { status } = body;
@@ -17,7 +20,7 @@ export async function PATCH(
     }
 
     const partner = await prisma.partner.update({
-      where: { id: params.id },
+      where: { id },
       data: { status },
     });
 
