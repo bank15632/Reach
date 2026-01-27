@@ -104,7 +104,7 @@ export async function PUT(
             ? body.role
             : undefined;
         const nextPermissions = Array.isArray(body.adminPermissions)
-            ? body.adminPermissions.filter((perm: string) => ADMIN_PERMISSION_KEYS.includes(perm))
+            ? body.adminPermissions.filter((perm: string) => (ADMIN_PERMISSION_KEYS as readonly string[]).includes(perm))
             : undefined;
 
         const adminPermissionsData =
