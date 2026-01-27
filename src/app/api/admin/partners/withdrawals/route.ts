@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/auth";
 import prisma from "@/lib/db/prisma";
+import { WithdrawalStatus } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
     await requireAdminPermission("MANAGE_PARTNERS");
 
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get("status") || "PENDING";
+    const statusParam = searchParams.get("status");
+
+    // Validate that the status is a valid enum value, default to PENDING if not provided or invalid
+    const status: WithdrawalStatus | undefined = (statusParam && Object.values(WithdrawalStatus).includes(statusParam as WithdrawalStatus))
+      ? (statusParam as WithdrawalStatus)
+      : WithdrawalStatus.PENDING;
 
     const withdrawals = await prisma.partnerWithdrawal.findMany({
       where: { status },
